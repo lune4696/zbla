@@ -1,0 +1,5 @@
+# キャッシュ、生成ファイルを除外
+.global_cache/
+.zig-cache/
+lib/
+zig-out/
