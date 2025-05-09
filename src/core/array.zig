@@ -7,80 +7,114 @@ const lapack = @cImport({
 });
 
 /// 目的
-///     Dense.data中の配列要素についてのエラー
-///     初期値で埋めるなどの対応により、関数によっては無視することも想定している
-pub const ElementError = error{
-    Overflow,
-    ZeroDivision,
+///     > Dense(T, n) の型情報についてのエラー
+///
+/// Target
+///     > Errors about type information of Dense(T, n)
+pub const TypeError = error{
+    /// そのデータ型について実装されていない
+    DataTypeNotImplemented,
+    /// その次元数 (number of dimensions) について実装されていない
+    NumDimensionsNotImplemented,
 };
 
 /// 目的
-///     Dense.shapeについてのエラー
+///     > Dense(T, n).shapeについてのエラー
+///
+/// Target
+///     > Errors about Dense(T, n).shape
 pub const ShapeError = error{
-    /// 2つのshapeの各次元の値が整合しない
+    /// 2つの shape の各次元の値が整合しない
     DimensionsMismatch,
-    /// shapeの次元数 (= shape.len) が整合しない
-    LengthMismatch,
-    /// shapeのsize (= Π_i shape[i]) が整合しない
+    /// shape の size (= Π_i shape[i]) が整合しない
     SizeMismatch,
-    /// shape とstrideが整合しない
-    ShapeStrideMismatch,
-    /// このshapeを使用することは想定されていない
+    /// 与えられた形状に対して次元数が整合しない
+    ShapeNumDimensionsMismatch,
+    /// dimension と stride が整合しない
+    DimensionStrideMismatch,
+    /// その実装されていない
     ShapeNotImplemented,
-    /// shapeから想定される配列インデックスの範囲を上回る値が与えられている
+    /// shape から想定される配列インデックスの範囲を上回る値が与えられている
     ArrayindexOutOfRange,
-    /// shapeから想定される線形インデックスの範囲を上回る値が与えられている
+    /// shape から想定される線形インデックスの範囲を上回る値が与えられている
     LinearindexOutOfRange,
-    /// shapeの次元数 (= shape.len) がゼロ
-    ZeroLength,
-    /// shapeの次元の何れかにゼロの値がある(shape[i] == 0)
+    /// shape の長さ = 次元数 (= shape.len) がゼロ
+    ZeroNumDimensions,
+    /// shape の次元の何れかにゼロの値がある (shape[i] == 0)
     ZeroDimension,
 };
 
 /// 目的
-///     Dense.stridesについてのエラー
-///     stridesとshapeが干渉する場合も含む
-/// 背景
-///     shape/strides間エラーは、shapeからstrideが作られるので、stride側のエラーとみなす
+///     > Dense(T, n).stridesについてのエラー
+///
+/// Target
+///     > Errors about Dense(T, n).strides
 pub const StridesError = error{
-    ShapeStrideMismatch,
+    /// dimension と stride が整合しない
+    DimensionStrideMismatch,
+    /// strides が整列されていない
     StridesNotOrdered,
+    /// strides 内にゼロが含まれている
     ZeroStride,
 };
 
 /// 目的
-///     HybridArray.dataについてのエラー
-///     dataとshape, stridesが矛盾する場合のエラーも含む
-/// 背景
-///     shape/data, strides/data間エラーは、shapeとstrideでdataにアクセスするので、data側のエラーとみなす
+///     > Dense(T, n).dataについてのエラー
+///
+/// Target
+///     > Errors about Dense(T, n).data
 pub const DataError = error{
+    /// データアロケーションに失敗した
     AllocationFailed,
+    /// データ型が合わない
     DataShapeMismatch,
+    /// データが整列されていない
     DataNotOrdered,
-    TypeNotImplemented,
 };
 
 /// 目的
-///     HybridArray.shape, .stridesに関係するエラーの総体
-pub const ShapeStridesError = ShapeError || StridesError;
+///     > Dense(T, n).data中の配列要素についてのエラー
+///
+/// Target
+///     > Errors about an element in Dense(T, n).data
+pub const ElementError = error{
+    /// 計算オーバーフローが発生した
+    Overflow,
+    /// ゼロ除算が発生した
+    ZeroDivision,
+};
+
+pub const Error = TypeError || ShapeError || StridesError || DataError || ElementError;
+
+pub fn Vector(comptime T: type) type {
+    return Dense(T, 1);
+}
+
+pub fn Matrix(comptime T: type) type {
+    return Dense(T, 2);
+}
 
 /// 目的
-///     HybridArrayに関係するエラーの総体
-pub const ArrayError = DataError || ShapeStridesError;
-
-/// 目的
-///     全エラー
-///     上記のエラー型でカバーできない時に用いることを想定
-///     必要ない時は使わないことを強く推奨
-pub const AllError = ElementError || ArrayError;
-
-/// 目的
-///     任意型多次元密配列、数値型(T)と次元(n)によって型が定義される
-///     メソッドや関数の実装・動作規則はREADMEを参照
-///     原則としてdataはimmutable, shape/stridesはmutableとして実装
-///     一度生成されたDense(T, n)は、ユーザーが明示的にdestroy()する必要がある
-/// 注意点
-///     データ順はcolumn-major 、つまり行列なら列ベクトルが並ぶ形で表現される
+///     > 任意型多次元密配列、数値型(T)と次元(n)によって型が定義される
+///     > メソッドや関数の実装・動作規則はREADMEを参照
+///     > 原則として .data は immutable 、 .shape/.strides は mutable として実装
+///     > 一度生成された Dense(T, n) は、 caller が明示的に destroy() する必要がある
+///
+/// Target
+///     > Arbitrary type and dimension dense array, defined as data type(T) and number of dimensions(n)
+///     > See README for method/function implementations and regulations.
+///     > Basically, .data is immutable and .shape/.strides is mutable in functions.
+///     > Once Dense(T, n) is generated, caller must destroy() it.
+///
+/// 補足
+///     > データ順は column-major 、ベクトルは列ベクトル (numpyと同じ)
+///         >> [
+///         >>  [0, 2],
+///         >>  [1, 3],
+///         >> ]
+///
+/// Appendix
+///     > Data order is column-major and vector is column-vector (= numpy like).
 pub fn Dense(comptime T: type, comptime n: usize) type {
     return struct {
         allocator: std.mem.Allocator,
@@ -90,7 +124,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
 
         /// 目的
         ///     データ型を取得するためのメソッド
-        /// 注意点
+        /// 補足
         ///     これはzig側の実装が間に合ってないからだと思うのだが、
         ///     何故かインライン展開してもdtype()をcomptimeディスパッチに使えない
         pub inline fn dataType(self: @This()) type {
@@ -107,17 +141,17 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
 
         /// 目的
         ///     Dense(T)を初期値を定めずに初期化
-        /// 注意点
+        /// 補足
         ///     あくまでアロケータ、配列情報のみが割り当てられる
         ///     データ領域は確保されるが、データ自体はload()で明示的にロードする必要がある
-        pub fn any(a: std.mem.Allocator, _shape: []const usize) ArrayError!Dense(T, n) {
+        pub fn any(a: std.mem.Allocator, _shape: []const usize) Error!Dense(T, n) {
             switch (@typeInfo(T)) {
                 .int, .float => {},
-                else => return DataError.TypeNotImplemented,
+                else => return TypeError.DataTypeNotImplemented,
             }
             switch (n) {
-                0 => return ShapeError.ZeroLength,
-                else => if (n != _shape.len) return ShapeError.LengthMismatch,
+                0 => return TypeError.NumDimensionsNotImplemented,
+                else => if (n != _shape.len) return ShapeError.ShapeNumDimensionsMismatch,
             }
 
             var shape: [n]usize = undefined;
@@ -136,18 +170,18 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     Dense(T)を初期値を定めずに初期化
-        /// 注意点
+        /// 補足
         ///     _dataはコピーされ、配列自体のデータとして新しく確保される
-        pub fn from(a: std.mem.Allocator, _shape: []const usize, _data: []const T) ArrayError!Dense(T, n) {
+        pub fn from(a: std.mem.Allocator, _shape: []const usize, _data: []const T) Error!Dense(T, n) {
             switch (@typeInfo(T)) {
                 .int, .float => {},
-                else => return DataError.TypeNotImplemented,
+                else => return TypeError.DataTypeNotImplemented,
             }
             switch (n) {
-                0 => return ShapeError.ZeroLength,
-                else => if (n != _shape.len) return ShapeError.LengthMismatch,
+                0 => return TypeError.NumDimensionsNotImplemented,
+                else => if (n != _shape.len) return ShapeError.ShapeNumDimensionsMismatch,
             }
 
             var shape: [n]usize = undefined;
@@ -169,16 +203,16 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     Dense(T)を任意初期値(initial_value)で埋めして初期化
-        pub fn with(a: std.mem.Allocator, _shape: []const usize, initial_value: T) ArrayError!Dense(T, n) {
+        pub fn with(a: std.mem.Allocator, _shape: []const usize, initial_value: T) Error!Dense(T, n) {
             switch (@typeInfo(T)) {
                 .int, .float => {},
-                else => return DataError.TypeNotImplemented,
+                else => return TypeError.DataTypeNotImplemented,
             }
             switch (n) {
-                0 => return ShapeError.ZeroLength,
-                else => if (n != _shape.len) return ShapeError.LengthMismatch,
+                0 => return TypeError.NumDimensionsNotImplemented,
+                else => if (n != _shape.len) return ShapeError.ShapeNumDimensionsMismatch,
             }
 
             var shape: [n]usize = undefined;
@@ -198,25 +232,25 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        pub fn zeros(a: std.mem.Allocator, array_shape: []const usize) ArrayError!Dense(T, n) {
+        pub fn zeros(a: std.mem.Allocator, array_shape: []const usize) Error!Dense(T, n) {
             return with(a, array_shape, 0) catch |e| return e;
         }
 
-        pub fn ones(a: std.mem.Allocator, array_shape: []const usize) ArrayError!Dense(T, n) {
+        pub fn ones(a: std.mem.Allocator, array_shape: []const usize) Error!Dense(T, n) {
             return with(a, array_shape, 1) catch |e| return e;
         }
 
-        /// 目的
+        /// Target
         ///     Dense(T)を破棄するメソッド
         pub fn destroy(self: @This()) void {
             self.allocator.free(self.data);
         }
 
-        /// 目的
+        /// Target
         ///     インスタンス情報のプリント
-        /// 注意点
+        /// 補足
         ///     dataは生データではなく、viewが返却される
-        pub fn print(self: @This()) ArrayError!void {
+        pub fn print(self: @This()) Error!void {
             std.debug.print("-" ** 16 ++ "\n", .{});
             std.debug.print("Array({s}, {d}): dense \n", .{ @typeName(self.dataType()), self.shape.len });
             std.debug.print("    shape: {d}\n", .{self.shape});
@@ -229,10 +263,10 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             std.debug.print("-" ** 16 ++ "\n", .{});
         }
 
-        /// 目的
+        /// Target
         ///     Dense(T)をコピーするメンバ関数
         ///     データは再配列されずに複製される
-        /// 注意点
+        /// 補足
         ///     複製元のアロケータを使用
         pub fn copy(self: @This()) DataError!@This() {
             const data = self.allocator.alloc(T, size(&self.shape)) catch return DataError.AllocationFailed;
@@ -245,12 +279,12 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     Dense(T, n)をコピーするメンバ関数
         ///     データは再配列されて複製される
-        /// 注意点
+        /// 補足
         ///     複製元のアロケータを使用
-        pub fn clone(self: @This()) ArrayError!@This() {
+        pub fn clone(self: @This()) Error!@This() {
             var view_idx: [n]usize = .{0} ** n;
             const data = self.allocator.alloc(T, size(&self.shape)) catch return DataError.AllocationFailed;
             const dsize = size(&self.shape);
@@ -267,9 +301,9 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     配列要素を整列してArrayListとして渡す
-        pub fn getOrderedData(self: @This()) ArrayError!std.ArrayList(T) {
+        pub fn getOrderedData(self: @This()) Error!std.ArrayList(T) {
             var list = std.ArrayList(T).init(self.allocator);
             errdefer list.deinit();
             list.ensureTotalCapacity(size(&self.shape)) catch return DataError.AllocationFailed;
@@ -282,11 +316,11 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return list;
         }
 
-        /// 目的
+        /// Target
         ///     Denseの配列要素アクセス
-        /// 注意点
+        /// 補足
         ///     ライブラリ外からの使用を想定し、shapeではなくsliceを引数に取る
-        pub fn get(self: @This(), view_idx: []const usize) ShapeStridesError!T {
+        pub fn get(self: @This(), view_idx: []const usize) Error!T {
             checkIndexInRange(&self.shape, view_idx) catch |e| return e;
             var view_idx_array: [n]usize = undefined;
             @memcpy(&view_idx_array, view_idx);
@@ -294,22 +328,22 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return self.data[data_idx];
         }
 
-        /// 目的
+        /// Target
         ///     Denseの配列要素アクセス
-        /// 注意点
+        /// 補足
         ///     ライブラリ外からの使用を想定し、shapeではなくsliceを引数に取る
-        pub fn set(self: *@This(), view_idx: []const usize, value: T) ArrayError!void {
+        pub fn set(self: *@This(), view_idx: []const usize, value: T) StridesError!void {
             var view_idx_array: [n]usize = undefined;
             @memcpy(&view_idx_array, view_idx);
             const data_idx = dataIndex(n)(self.strides, view_idx_array) catch |e| return e;
             self.data[data_idx] = value;
         }
 
-        /// 目的
+        /// Target
         ///     配列座標をスライスした新たな配列を取得
         /// 使用例
         ///     const arr2 = try arr.slice(&.{ &.{1}, &.{ 0, 2 }, &.{} });
-        /// 注意点
+        /// 補足
         ///     引数indices_arr: 配列各軸のスライスする位置を指定、無指定はその軸の全てをスライスする
         ///     data_indicesはview_idx順に入るので、データ再配列がここで起きる
         ///     内部の一時的な配列保存に.dataのアロケータを用いている
@@ -318,7 +352,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///         arena_allocatorとかでは若干だが容量を圧迫する事に注意
         /// その他
         ///     各軸について特定の範囲を指定してブロック状にスライスする"block(T, n) fn (arr, rangedindices: [][2]const usize)は実装を検討中
-        pub fn slice(self: @This(), indices_array: []const []const usize) ArrayError!@This() {
+        pub fn slice(self: @This(), indices_array: []const []const usize) Error!@This() {
             var shape: [n]usize = undefined;
             for (0..shape.len) |ax| shape[ax] = if (0 == indices_array[ax].len) self.shape[ax] else indices_array[ax].len;
             for (self.shape, shape) |x, y| if (x < y) return ShapeError.DimensionsMismatch;
@@ -356,15 +390,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     配列座標を変更した新たな配列を取得
         /// 使用例
         ///     const arr2 = try arr.reshape(4, &.{ 4, 2, 3, 2 });
-        /// 注意点
+        /// 補足
         ///     データ順序が整った行列についてのみ使用可能
         ///     transpose()などでstridesの降順が乱れている場合、アクセスパターンを確定できない為エラーを出す
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn reshape(self: @This(), comptime m: usize, _shape: []const usize) ArrayError!Dense(T, m) {
+        pub fn reshape(self: @This(), comptime m: usize, _shape: []const usize) Error!Dense(T, m) {
             if (m != _shape.len) return ShapeError.DimensionsMismatch;
             var shape: [m]usize = undefined;
             @memcpy(&shape, _shape);
@@ -382,15 +416,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     配列を転置, 二次元配列専用
         ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
-        /// 注意点
+        /// 補足
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn tr(self: *const @This()) ShapeError!void {
-            if (n != 2) return ShapeError.ShapeNotImplemented;
+        pub fn tr(self: *const @This()) TypeError!void {
+            comptime if (n != 2) return TypeError.NumDimensionsNotImplemented;
             const dim0 = self.shape[0];
             const dim1 = self.shape[1];
             const stride0 = self.strides[0];
@@ -401,15 +435,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             @constCast(self).strides[1] = stride0;
         }
 
-        /// 目的
+        /// Target
         ///     配列を転置
         ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
-        /// 注意点
+        /// 補足
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn trans(self: *const @This(), order: []const usize) ShapeError!void {
-            if (n < 2) return ShapeError.ShapeNotImplemented;
+        pub fn trans(self: *const @This(), order: []const usize) Error!void {
+            if (n < 2) return TypeError.NumDimensionsNotImplemented;
             var shape = self.shape;
             var strides = self.strides;
             if (order.len != self.shape.len) return ShapeError.DimensionsMismatch;
@@ -429,15 +463,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             @constCast(self).strides = strides;
         }
 
-        /// 目的
+        /// Target
         ///     転置した配列を取得, 2次元配列専用
         ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
-        /// 注意点
+        /// 補足
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn getTr(self: @This()) ArrayError!@This() {
-            if (n != 2) return ShapeError.ShapeNotImplemented;
+        pub fn getTr(self: @This()) Error!@This() {
+            if (n != 2) return TypeError.NumDimensionsNotImplemented;
             var shape = self.shape;
             var strides = self.strides;
             shape[0] = self.shape[1];
@@ -455,15 +489,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     転置した配列を取得
         ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
-        /// 注意点
+        /// 補足
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn getTrans(self: @This(), order: []const usize) ArrayError!@This() {
-            if (n < 2) return ShapeError.ShapeNotImplemented;
+        pub fn getTrans(self: @This(), order: []const usize) Error!@This() {
+            if (n < 2) return TypeError.NumDimensionsNotImplemented;
             var shape = self.shape;
             var strides = self.strides;
             if (order.len != self.shape.len) return ShapeError.DimensionsMismatch;
@@ -489,7 +523,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// 目的
+        /// Target
         ///     行列のStrideが昇順(column-major)にAlignされているかを確認
         ///     つまり、transpose()されたかどうかの確認に使える
         pub fn isAligned(self: @This()) bool {
@@ -501,15 +535,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return true;
         }
 
-        /// 目的
+        /// Target
         ///     行列の(疑似)逆行列の導出
         /// https://www.netlib.org/lapack/explore-html-3.6.1/index.html
-        pub fn inv(self: @This(), tmp_alc: std.mem.Allocator, obj_alc: std.mem.Allocator) ArrayError!@This() {
+        pub fn inv(self: @This(), tmp_alc: std.mem.Allocator, obj_alc: std.mem.Allocator) Error!@This() {
             switch (T) {
                 f32, f64 => {},
                 else => DataError.TypeNotImplemented,
             }
-            if (self.shape.len != 2) return ShapeError.shapeNotImplemented;
+            if (self.shape.len != 2) return ShapeError.NotImplemented;
 
             const shape: [2]usize = .{ self.shape[1], self.shape[0] };
             // In
@@ -560,7 +594,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
     };
 }
 
-/// 目的
+/// Target
 ///     配列座標(shape)の最大要素数(size)を計算
 pub fn size(shape: []const usize) usize {
     var ans: usize = 1;
@@ -568,9 +602,9 @@ pub fn size(shape: []const usize) usize {
     return ans;
 }
 
-/// 目的
+/// Target
 ///     配列座標(shape)のstrideを計算
-/// 注意点
+/// 補足
 ///     column-majorなので、stridesは次元の昇順に計算される
 pub fn stridesFromShape(comptime n: usize) fn (shape: [n]usize) ShapeError![n]usize {
     return struct {
@@ -586,14 +620,14 @@ pub fn stridesFromShape(comptime n: usize) fn (shape: [n]usize) ShapeError![n]us
     }.f;
 }
 
-/// 目的
+/// Target
 ///     getなどで配列要素にアクセスする時に、そのインデックスが妥当かどうか確認
 ///     配列座標(shape)の中に対象点(arrayindex)が収まるかどうか確認
 pub fn checkIndexInRange(shape: []const usize, arrayidx: []const usize) ShapeError!void {
     for (shape, arrayidx) |ax, idx| if (ax <= idx) return ShapeError.ArrayindexOutOfRange;
 }
 
-/// 目的
+/// Target
 ///     stridesを利用してビューインデックスからデータインデックスを計算
 pub fn dataIndex(comptime n: usize) fn (strides: [n]usize, view_index: [n]usize) StridesError!usize {
     return struct {
@@ -609,11 +643,11 @@ pub fn dataIndex(comptime n: usize) fn (strides: [n]usize, view_index: [n]usize)
     }.f;
 }
 
-/// 目的
+/// Target
 ///     配列座標(shape, order, strides)を利用してデータインデックス(線形)からビューインデックス(アレイ)を計算
-pub fn viewIndex(comptime n: usize) fn (shape: [n]usize, strides: [n]usize, data_idx: usize) ShapeStridesError![n]usize {
+pub fn viewIndex(comptime n: usize) fn (shape: [n]usize, strides: [n]usize, data_idx: usize) Error![n]usize {
     return struct {
-        fn f(shape: [n]usize, strides: [n]usize, data_idx: usize) ShapeStridesError![n]usize {
+        fn f(shape: [n]usize, strides: [n]usize, data_idx: usize) Error![n]usize {
             for (strides) |stride| if (0 == stride) return StridesError.ZeroStride;
             for (shape) |ax| if (0 == ax) return ShapeError.ZeroDimension;
             if (size(&shape) <= data_idx) return ShapeError.LinearindexOutOfRange;
@@ -644,9 +678,9 @@ pub fn viewIndex(comptime n: usize) fn (shape: [n]usize, strides: [n]usize, data
     }.f;
 }
 
-/// 目的
+/// Target
 ///     view_idxをcolumn-major(昇順)でインクリメント
-/// 注意点
+/// 補足
 ///     ビューインデックスはmutable
 pub fn incrementViewIndex(shape: []const usize, view_idx: []usize) void {
     if (shape.len != view_idx.len) unreachable;
@@ -658,266 +692,6 @@ pub fn incrementViewIndex(shape: []const usize, view_idx: []usize) void {
         }
         view_idx[i] = 0;
     }
-}
-
-/// 目的
-///     汎用行列-行列算術演算(GEneral Matrix-Matrix operation (GEMM), level 3 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     C = alpha * a @ b + beta * C
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     beta: T,
-///     a: Dense(T, 2), m by k matrix
-///     b: Dense(T, 2), k by n matrix
-pub fn gemm(comptime T: type) fn (a: *const Dense(T, 2), b: *const Dense(T, 2), c: *const Dense(T, 2), alpha: T, beta: T) ArrayError!void {
-    return struct {
-        fn f(a: *const Dense(T, 2), b: *const Dense(T, 2), c: *const Dense(T, 2), alpha: T, beta: T) ArrayError!void {
-            switch (T) {
-                f32, f64 => {},
-                else => return DataError.TypeNotImplemented,
-            }
-            if (a.shape[1] != b.shape[0]) return ShapeError.DimensionsMismatch;
-
-            const m: i32 = @intCast(a.shape[0]);
-            const n: i32 = @intCast(b.shape[1]);
-            const k: i32 = @intCast(a.shape[1]);
-            const ldc = m;
-            const major = blas.CblasColMajor;
-            const tr = blas.CblasTrans;
-            const no = blas.CblasNoTrans;
-            switch (T) {
-                f32 => {
-                    // 2次元配列であることを利用し、転置されたか否かのみでgemmの挙動を切り替える
-                    switch (!a.isAligned()) {
-                        true => {
-                            switch (!b.isAligned()) {
-                                // a: 転置有, b: 転置有
-                                true => {
-                                    const lda = k;
-                                    const ldb = k;
-                                    blas.cblas_sgemm(major, tr, tr, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                                // a: 転置有, b: 転置無
-                                false => {
-                                    const lda = k;
-                                    const ldb = n;
-                                    blas.cblas_sgemm(major, tr, no, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                            }
-                        },
-                        false => {
-                            switch (!b.isAligned()) {
-                                // a: 転置無, b: 転置有
-                                true => {
-                                    const lda = m;
-                                    const ldb = k;
-                                    blas.cblas_sgemm(major, no, tr, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                                // a: 転置無, b: 転置無
-                                false => {
-                                    const lda = m;
-                                    const ldb = n;
-                                    blas.cblas_sgemm(major, no, no, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                            }
-                        },
-                    }
-                },
-                f64 => {
-                    // 2次元配列であることを利用し、転置されたか否かのみでgemmの挙動を切り替える
-                    switch (!a.isAligned()) {
-                        true => {
-                            switch (!b.isAligned()) {
-                                // a: 転置有, b: 転置有
-                                true => {
-                                    const lda = k;
-                                    const ldb = k;
-                                    blas.cblas_dgemm(major, tr, tr, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                                // a: 転置有, b: 転置無
-                                false => {
-                                    const lda = k;
-                                    const ldb = n;
-                                    blas.cblas_dgemm(major, tr, no, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                            }
-                        },
-                        false => {
-                            switch (!b.isAligned()) {
-                                // a: 転置無, b: 転置有
-                                true => {
-                                    const lda = m;
-                                    const ldb = k;
-                                    blas.cblas_dgemm(major, no, tr, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                                // a: 転置無, b: 転置無
-                                false => {
-                                    const lda = m;
-                                    const ldb = n;
-                                    blas.cblas_dgemm(major, no, no, m, n, k, alpha, a.data.ptr, lda, b.data.ptr, ldb, beta, c.data.ptr, ldc);
-                                },
-                            }
-                        },
-                    }
-                },
-                else => unreachable,
-            }
-        }
-    }.f;
-}
-
-/// 目的
-///     汎用行列-ベクトル算術演算(GEneral Matrix-Vector operation (GEMV), level 2 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     y := alpha * a @ x + beta * y
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     beta: T,
-///     a: Dense(T, 2), m by n matrix
-///     x: Dense(T, 1), n row vector
-///     y: Dense(T, 1), m row vector
-pub fn gemv(comptime T: type) fn (a: *const Dense(T, 2), x: *const Dense(T, 1), y: *const Dense(T, 1), alpha: T, beta: T) ArrayError!void {
-    return struct {
-        fn f(a: *const Dense(T, 2), x: *const Dense(T, 1), y: *const Dense(T, 1), alpha: T, beta: T) ArrayError!void {
-            switch (T) {
-                f32, f64 => {},
-                else => return DataError.TypeNotImplemented,
-            }
-            if (a.shape[1] != x.shape[0]) return ShapeError.DimensionsMismatch;
-
-            const m: i32 = @intCast(a.shape[0]);
-            const n: i32 = @intCast(a.shape[1]);
-            // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
-            const inc_x = 1;
-            const inc_y = 1;
-            const major = blas.CblasColMajor;
-            const tr = blas.CblasTrans;
-            const no = blas.CblasNoTrans;
-            switch (T) {
-                f32 => {
-                    // 2次元配列であることを利用し、転置されたか否かのみでgemmの挙動を切り替える
-                    switch (!a.isAligned()) {
-                        true => {
-                            const lda = n;
-                            blas.cblas_sgemv(major, tr, m, n, alpha, a.data.ptr, lda, x.data.ptr, inc_x, beta, y.data.ptr, inc_y);
-                        },
-                        false => {
-                            const lda = m;
-                            blas.cblas_sgemv(major, no, m, n, alpha, a.data.ptr, lda, x.data.ptr, inc_x, beta, y.data.ptr, inc_y);
-                        },
-                    }
-                },
-                f64 => {
-                    // 2次元配列であることを利用し、転置されたか否かのみでgemmの挙動を切り替える
-                    switch (!a.isAligned()) {
-                        true => {
-                            const lda = n;
-                            blas.cblas_dgemv(major, tr, m, n, alpha, a.data.ptr, lda, x.data.ptr, inc_x, beta, y.data.ptr, inc_y);
-                        },
-                        false => {
-                            const lda = m;
-                            blas.cblas_dgemv(major, no, m, n, alpha, a.data.ptr, lda, x.data.ptr, inc_x, beta, y.data.ptr, inc_y);
-                        },
-                    }
-                },
-                else => unreachable,
-            }
-        }
-    }.f;
-}
-
-/// 目的
-///     汎用ベクトル-ベクトル算術演算(AXPlusY (AXPY), level 2 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     y := alpha * x + y
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     x: Dense(T, 1), n row vector
-///     y: Dense(T, 1), n row vector
-pub fn axpy(comptime T: type) fn (x: *const Dense(T, 1), y: *const Dense(T, 1), alpha: T) ArrayError!void {
-    return struct {
-        fn f(x: *const Dense(T, 1), y: *const Dense(T, 1), alpha: T) ArrayError!void {
-            switch (T) {
-                f32, f64 => {},
-                else => return DataError.TypeNotImplemented,
-            }
-            if (x.shape[0] != y.shape[0]) return ShapeError.DimensionsMismatch;
-
-            const n: i32 = @intCast(x.shape[0]);
-            // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
-            const inc_x = 1;
-            const inc_y = 1;
-            switch (T) {
-                f32 => blas.cblas_saxpy(n, alpha, x.data.ptr, inc_x, y.data.ptr, inc_y),
-                f64 => blas.cblas_daxpy(n, alpha, x.data.ptr, inc_x, y.data.ptr, inc_y),
-                else => unreachable,
-            }
-        }
-    }.f;
-}
-
-/// 目的
-///     ベクトル-ベクトル内積(dot, level 1 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     ans := x · y
-/// 引数
-///     where T = f32 or f64
-///     x: Dense(T, 1), n row vector
-///     y: Dense(T, 1), n row vector
-/// 注意点
-///     cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
-pub fn dot(comptime T: type) fn (x: *const Dense(T, 1), y: *const Dense(T, 1)) ArrayError!T {
-    return struct {
-        fn f(x: *const Dense(T, 1), y: *const Dense(T, 1)) ArrayError!T {
-            switch (T) {
-                f32, f64 => {},
-                else => return DataError.TypeNotImplemented,
-            }
-            if (x.shape[0] != y.shape[0]) return ShapeError.DimensionsMismatch;
-
-            const n: i32 = @intCast(x.shape[0]);
-            // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
-            const inc_x = 1;
-            const inc_y = 1;
-            return switch (T) {
-                f32 => blas.cblas_sdot(n, x.data.ptr, inc_x, y.data.ptr, inc_y),
-                f64 => blas.cblas_ddot(n, x.data.ptr, inc_x, y.data.ptr, inc_y),
-                else => unreachable,
-            };
-        }
-    }.f;
-}
-
-/// 目的
-///     ベクトルのスカラー倍(scal, level 1 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     x := alpha * x
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     x: Dense(T, 1), n row vector
-/// 注意点
-///     cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
-pub fn scal(comptime T: type) fn (x: *const Dense(T, 1), alpha: T) DataError!void {
-    return struct {
-        fn f(x: *const Dense(T, 1), alpha: T) DataError!void {
-            switch (T) {
-                f32, f64 => {},
-                else => return DataError.TypeNotImplemented,
-            }
-            const n: i32 = @intCast(x.shape[0]);
-            // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
-            const inc_x = 1;
-            switch (T) {
-                f32 => blas.cblas_sscal(n, alpha, x.data.ptr, inc_x),
-                f64 => blas.cblas_dscal(n, alpha, x.data.ptr, inc_x),
-                else => unreachable,
-            }
-        }
-    }.f;
 }
 
 // unit tests
@@ -1215,517 +989,6 @@ test "inv" {
     }
 }
 
-test "gemm" {
-    std.debug.print("\nTEST: gemm\n", .{});
-    std.debug.print("\n", .{});
-
-    const alc = std.testing.allocator;
-
-    {
-        std.debug.print("VERIFY: gemm(f32, 2)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 1, -1, -2, 0, 1, 0, 2, 1 };
-        const b_data = &.{ -0.5, -0.75, 0.25, 0.5, 0.25, 0.25, -1, -0.5, 0.5 };
-
-        const answer = &.{ 1, 0, 0, 0, 1, 0, 0, 0, 1 };
-
-        const a = try Dense(f32, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-
-        const b = try Dense(f32, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-
-        const c = try Dense(f32, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f32)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f32, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f32, 2) (trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-        const answer = &.{ 30, 84, 138, 24, 69, 114, 18, 54, 90 };
-
-        const a = try Dense(f32, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-        try a.tr();
-
-        const b = try Dense(f32, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-        try b.tr();
-
-        const c = try Dense(f32, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f32)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f32, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f32, 2) (trans, no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-        const answer = &.{ 46, 118, 190, 28, 73, 118, 10, 28, 46 };
-
-        const a = try Dense(f32, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-        try a.tr();
-
-        const b = try Dense(f32, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-
-        const c = try Dense(f32, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f32)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f32, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f32, 2) (no trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-        const answer = &.{ 54, 72, 90, 42, 57, 72, 30, 42, 54 };
-
-        const a = try Dense(f32, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-
-        const b = try Dense(f32, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-        try b.tr();
-
-        const c = try Dense(f32, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f32)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f32, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f64, 2)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 1, -1, -2, 0, 1, 0, 2, 1 };
-        const b_data = &.{ -0.5, -0.75, 0.25, 0.5, 0.25, 0.25, -1, -0.5, 0.5 };
-
-        const answer = &.{ 1, 0, 0, 0, 1, 0, 0, 0, 1 };
-
-        const a = try Dense(f64, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-
-        const b = try Dense(f64, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-
-        const c = try Dense(f64, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f64)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f64, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f64, 2) (trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-        const answer = &.{ 30, 84, 138, 24, 69, 114, 18, 54, 90 };
-
-        const a = try Dense(f64, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-        try a.tr();
-
-        const b = try Dense(f64, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-        try b.tr();
-
-        const c = try Dense(f64, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f64)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f64, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f64, 2) (trans, no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-        const answer = &.{ 46, 118, 190, 28, 73, 118, 10, 28, 46 };
-
-        const a = try Dense(f64, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-        try a.tr();
-
-        const b = try Dense(f64, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-
-        const c = try Dense(f64, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f64)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f64, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemm(f64, 2) (no trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-        const answer = &.{ 54, 72, 90, 42, 57, 72, 30, 42, 54 };
-
-        const a = try Dense(f64, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-
-        const b = try Dense(f64, 2).from(alc, b_shape, b_data);
-        defer b.destroy();
-        try b.tr();
-
-        const c = try Dense(f64, 2).any(alc, c_shape);
-        defer c.destroy();
-
-        try gemm(f64)(&a, &b, &c, 1, 0);
-        try c.print();
-
-        try std.testing.expect(std.mem.eql(f64, c.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-}
-
-test "gemv" {
-    std.debug.print("\nTEST: gemv\n", .{});
-    std.debug.print("\n", .{});
-
-    const alc = std.testing.allocator;
-
-    {
-        std.debug.print("VERIFY: gemv(f32, 2) (no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const x_data = &.{ 1, 2, 3 };
-
-        const answer = &.{ 30, 36, 42 };
-
-        const a = try Dense(f32, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-
-        const x = try Dense(f32, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f32, 1).any(alc, y_shape);
-        defer y.destroy();
-
-        try gemv(f32)(&a, &x, &y, 1, 0);
-        try y.print();
-
-        try std.testing.expect(std.mem.eql(f32, y.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemv(f32, 2) (trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const x_data = &.{ 1, 2, 3 };
-
-        const answer = &.{ 14, 32, 50 };
-
-        const a = try Dense(f32, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-        try a.tr();
-
-        const x = try Dense(f32, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f32, 1).any(alc, y_shape);
-        defer y.destroy();
-
-        try gemv(f32)(&a, &x, &y, 1, 0);
-        try y.print();
-
-        try std.testing.expect(std.mem.eql(f32, y.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemv(f64, 2) (no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const x_data = &.{ 1, 2, 3 };
-
-        const answer = &.{ 30, 36, 42 };
-
-        const a = try Dense(f64, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-
-        const x = try Dense(f64, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f64, 1).any(alc, y_shape);
-        defer y.destroy();
-
-        try gemv(f64)(&a, &x, &y, 1, 0);
-        try y.print();
-
-        try std.testing.expect(std.mem.eql(f64, y.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: gemv(f64, 2) (trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        const x_data = &.{ 1, 2, 3 };
-
-        const answer = &.{ 14, 32, 50 };
-
-        const a = try Dense(f64, 2).from(alc, a_shape, a_data);
-        defer a.destroy();
-        try a.tr();
-
-        const x = try Dense(f64, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f64, 1).any(alc, y_shape);
-        defer y.destroy();
-
-        try gemv(f64)(&a, &x, &y, 1, 0);
-        try y.print();
-
-        try std.testing.expect(std.mem.eql(f64, y.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-}
-
-test "axpy" {
-    std.debug.print("\nTEST: axpy\n", .{});
-    std.debug.print("\n", .{});
-
-    const alc = std.testing.allocator;
-
-    {
-        std.debug.print("VERIFY: axpy(f32, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const x_data = &.{ 1, 2, 3 };
-        const y_data = &.{ 1, 2, 3 };
-        const alpha = 2;
-
-        const answer = &.{ 3, 6, 9 };
-
-        const x = try Dense(f32, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f32, 1).from(alc, y_shape, y_data);
-        defer y.destroy();
-
-        try axpy(f32)(&x, &y, alpha);
-        try y.print();
-
-        try std.testing.expect(std.mem.eql(f32, y.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: axpy(f64, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const x_data = &.{ 1, 2, 3 };
-        const y_data = &.{ 1, 2, 3 };
-        const alpha = 2;
-
-        const answer = &.{ 3, 6, 9 };
-
-        const x = try Dense(f64, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f64, 1).from(alc, y_shape, y_data);
-        defer y.destroy();
-
-        try axpy(f64)(&x, &y, alpha);
-        try y.print();
-
-        try std.testing.expect(std.mem.eql(f64, y.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-}
-
-test "scal" {
-    std.debug.print("\nTEST: scal\n", .{});
-    std.debug.print("\n", .{});
-
-    const alc = std.testing.allocator;
-
-    {
-        std.debug.print("VERIFY: scal(f32, 2)...\n", .{});
-        const x_shape = &.{3};
-
-        const x_data = &.{ 1, 2, 3 };
-        const alpha = 3;
-
-        const answer = &.{ 3, 6, 9 };
-
-        const x = try Dense(f32, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        try scal(f32)(&x, alpha);
-        try x.print();
-
-        try std.testing.expect(std.mem.eql(f32, x.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: scal(f64, 2)...\n", .{});
-        const x_shape = &.{3};
-
-        const x_data = &.{ 1, 2, 3 };
-        const alpha = 3;
-
-        const answer = &.{ 3, 6, 9 };
-
-        const x = try Dense(f64, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        try scal(f64)(&x, alpha);
-        try x.print();
-
-        try std.testing.expect(std.mem.eql(f64, x.data, answer));
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-}
-
-test "dot" {
-    std.debug.print("\nTEST: dot\n", .{});
-    std.debug.print("\n", .{});
-
-    const alc = std.testing.allocator;
-
-    {
-        std.debug.print("VERIFY: dot(f32, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const x_data = &.{ 1, 2, 3 };
-        const y_data = &.{ 1, 2, 3 };
-
-        const answer = 14;
-
-        const x = try Dense(f32, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f32, 1).from(alc, y_shape, y_data);
-        defer y.destroy();
-
-        const result = try dot(f32)(&x, &y);
-
-        try std.testing.expect(result == answer);
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-
-    {
-        std.debug.print("VERIFY: dot(f64, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
-
-        const x_data = &.{ 1, 2, 3 };
-        const y_data = &.{ 1, 2, 3 };
-
-        const answer = 14;
-
-        const x = try Dense(f64, 1).from(alc, x_shape, x_data);
-        defer x.destroy();
-
-        const y = try Dense(f64, 1).from(alc, y_shape, y_data);
-        defer y.destroy();
-
-        const result = try dot(f64)(&x, &y);
-
-        try std.testing.expect(result == answer);
-
-        std.debug.print("...SUCCESS\n", .{});
-    }
-}
-
 test "exception check" {
     std.debug.print("\nTEST: Exception check\n", .{});
     std.debug.print("\n", .{});
@@ -1739,7 +1002,7 @@ test "exception check" {
         for (0..6) |_| try list.append(true);
         defer list.deinit();
 
-        try std.testing.expectError(DataError.TypeNotImplemented, Dense(bool, 3).from(alloc, shape, list.items));
+        try std.testing.expectError(TypeError.DataTypeNotImplemented, Dense(bool, 3).from(alloc, shape, list.items));
     }
     std.debug.print("...SUCCESS\n\n", .{});
 
@@ -1747,7 +1010,7 @@ test "exception check" {
     {
         const shape0 = &.{};
 
-        try std.testing.expectError(ShapeError.ZeroLength, Dense(f32, 0).ones(alloc, shape0));
+        try std.testing.expectError(TypeError.NumDimensionsNotImplemented, Dense(f32, 0).ones(alloc, shape0));
     }
     std.debug.print("...SUCCESS\n\n", .{});
 

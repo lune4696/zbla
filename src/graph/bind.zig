@@ -1,1 +1,3 @@
-pub const adjacenecy = @import("adjacency.zig");
+const std = @import("std");
+
+pub const matrix = @import("matrix.zig");

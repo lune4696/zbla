@@ -29,6 +29,7 @@ pub fn linkCLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.
     switch (target.result.os.tag) {
         .linux => {
             comp.linkSystemLibrary("cblas");
+            comp.linkSystemLibrary("lapack");
             comp.linkSystemLibrary("mpi");
         },
         .windows => {

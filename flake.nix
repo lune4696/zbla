@@ -34,6 +34,7 @@
             # 線形演算ライブラリ
             blas
             lapack
+            mpi
             # ユーティリティ
             cloc              # 行数カウンタ
             fzf               # fuzzy finder
@@ -51,7 +52,7 @@
 
             packages = stable-pkgs ++ unstable-pkgs;
 
-            NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.pkgconf pkgs.raylib ];
+            NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.pkgconf pkgs.raylib pkgs.blas pkgs.lapack pkgs.mpi ];
             LD_LIBRARY_PATH = "$(nix-build '<nixpkgs>' -A wayland)/lib";
 
             # 環境変数設定 (オプション)
