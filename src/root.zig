@@ -1,11 +1,12 @@
-//! Zig BLAS and LAPACK based (dense) array library.
-//! zbla contains some functions
+//! zbla: Zig BLAS/LAPACK-based (dense) array library.
+//!
+//! zbla contains functions as below
 //!     > core: basic array function
-//!         > array: column-order/major (dense) array Dense(T, n) and its method
-//!         > math: mathematical operations for Dense(T, n)
+//!         >> array: column-order/major (dense) array Dense(T, n) and its method
+//!         >> math: mathematical operations for Dense(T, n)
 //!     > graph: graph-related operations (graph laplacian, ...)
 //!     > solver: (non-)iterative linear algebra solver
-//!         > iterative: iterative solver (CG, MINRES, ...)
+//!         >> iterative: iterative solver (CG, MINRES, ...)
 //!
 const std = @import("std");
 
