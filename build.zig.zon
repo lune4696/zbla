@@ -1,9 +1,9 @@
 .{
     .name = .zbla,
 
-    .fingerprint = 0x9d68f5cfa87118f9,
+    .fingerprint = 0x9d68f5cf00b54769,
 
-    .version = "0.0.1",
+    .version = "0.0.0",
 
     .minimum_zig_version = "0.14.0",
 

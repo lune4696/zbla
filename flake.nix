@@ -52,7 +52,7 @@
 
             packages = stable-pkgs ++ unstable-pkgs;
 
-            NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.pkgconf pkgs.raylib pkgs.blas pkgs.lapack pkgs.mpi ];
+            NIX_LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.pkgconf pkgs.raylib ];
             LD_LIBRARY_PATH = "$(nix-build '<nixpkgs>' -A wayland)/lib";
 
             # 環境変数設定 (オプション)

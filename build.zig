@@ -1,15 +1,14 @@
 const std = @import("std");
 
-pub fn linkZigLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
-    _ = b;
-    _ = comp;
-    _ = target;
+pub fn linkZigLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, libs: []const []const u8) void {
     // add dependency libraries
-    //const lib_dep = b.dependency("lib", .{
-    //    .target = target,
-    //});
-    //const lib_mod = lib_dep.module("lib");
-    //comp.root_module.addImport("lib", lib_mod);
+    for (libs) |lib| {
+        const lib_dep = b.dependency(lib, .{
+            .target = target,
+        });
+        const lib_mod = lib_dep.module(lib);
+        comp.root_module.addImport(lib, lib_mod);
+    }
 }
 
 pub fn linkCLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
@@ -48,7 +47,7 @@ pub fn linkCLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.
     comp.linkLibC();
 }
 
-pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe_name: []const u8, root_file: []const u8) void {
+pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe_name: []const u8, root_file: []const u8, libs: []const []const u8) void {
     const exe = b.addExecutable(.{
         .name = exe_name,
         .root_source_file = b.path(root_file),
@@ -56,12 +55,12 @@ pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize:
         .optimize = optimize,
     });
 
-    linkZigLibraries(b, exe, target);
+    linkZigLibraries(b, exe, target, libs);
     linkCLibraries(b, exe, target);
     b.installArtifact(exe);
 }
 
-pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: []const u8) void {
+pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: []const u8, libs: []const []const u8) void {
     const test_step = b.step("test", "Run unit tests");
 
     const unit_tests = b.addTest(.{
@@ -70,7 +69,7 @@ pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: [
         //.test_runner = b.path("./test_runner.zig"),
     });
 
-    linkZigLibraries(b, unit_tests, target);
+    linkZigLibraries(b, unit_tests, target, libs);
     linkCLibraries(b, unit_tests, target);
 
     const run_tests = b.addRunArtifact(unit_tests);
@@ -83,8 +82,9 @@ pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: [
 ///     そのため、.os_tag = .linuxとすると、nixで入れたraylib, cblasが探せずに失敗する
 ///     おそらく適切なパスを見つけてexe.addLibraryPath("hoge");すれば出来そうなのだが、nix管理下のパスを探すのが面倒...
 pub fn build(b: *std.Build) void {
-    const exe_name = "zbla";
+    const exe_name = "morpheus";
     const root_file = "src/root.zig";
+    const libs: []const []const u8 = &.{};
     //const target = b.standardTargetOptions(.{});
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -96,6 +96,6 @@ pub fn build(b: *std.Build) void {
         .preferred_optimize_mode = .ReleaseFast,
     });
 
-    compileOnLinux(b, target, optimize, exe_name, root_file);
-    testOnLinux(b, target, root_file);
+    compileOnLinux(b, target, optimize, exe_name, root_file, libs);
+    testOnLinux(b, target, root_file, libs);
 }
