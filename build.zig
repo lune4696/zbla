@@ -55,6 +55,12 @@ pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize:
         .optimize = optimize,
     });
 
+    // 自分自身をモジュールに含めないと外側から使えない
+    const mod = b.addModule(exe_name, .{
+        .root_source_file = b.path(root_file),
+    });
+    exe.root_module.addImport(exe_name, mod);
+
     linkZigLibraries(b, exe, target, libs);
     linkCLibraries(b, exe, target);
     b.installArtifact(exe);
@@ -82,7 +88,7 @@ pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: [
 ///     そのため、.os_tag = .linuxとすると、nixで入れたraylib, cblasが探せずに失敗する
 ///     おそらく適切なパスを見つけてexe.addLibraryPath("hoge");すれば出来そうなのだが、nix管理下のパスを探すのが面倒...
 pub fn build(b: *std.Build) void {
-    const exe_name = "morpheus";
+    const exe_name = "zbla";
     const root_file = "src/root.zig";
     const libs: []const []const u8 = &.{};
     //const target = b.standardTargetOptions(.{});
