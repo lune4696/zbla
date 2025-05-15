@@ -125,7 +125,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return .{
                 .allocator = a,
                 .shape = shape,
-                .strides = stridesFromShape(n)(shape),
+                .strides = stridesFromShape(shape),
                 .data = &.{},
             };
         }
@@ -139,13 +139,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
                 if (n == 0) @compileError("ZeroDimension");
             }
 
-            const data = a.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = a.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             errdefer a.free(data);
 
             return .{
                 .allocator = a,
                 .shape = shape,
-                .strides = stridesFromShape(n)(shape),
+                .strides = stridesFromShape(shape),
                 .data = data,
             };
         }
@@ -159,16 +159,16 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
                 if (n == 0) @compileError("ZeroDimension");
             }
 
-            if (size(&shape) != original_data.len) return DataError.DataShapeMismatch;
+            if (size(shape) != original_data.len) return DataError.DataShapeMismatch;
 
-            const data = a.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = a.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             errdefer a.free(data);
             @memcpy(data, original_data);
 
             return .{
                 .allocator = a,
                 .shape = shape,
-                .strides = stridesFromShape(n)(shape),
+                .strides = stridesFromShape(shape),
                 .data = data,
             };
         }
@@ -180,14 +180,14 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
                 if (n == 0) @compileError("ZeroDimension");
             }
 
-            const data = a.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = a.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             errdefer a.free(data);
             @memset(data, initial_value);
 
             return .{
                 .allocator = a,
                 .shape = shape,
-                .strides = stridesFromShape(n)(shape),
+                .strides = stridesFromShape(shape),
                 .data = data,
             };
         }
@@ -244,7 +244,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         /// 補足
         ///     > 複製元のアロケータを使用
         pub fn copy(self: @This()) DataError!@This() {
-            const data = self.allocator.alloc(T, size(&self.shape)) catch return DataError.AllocationFailed;
+            const data = self.allocator.alloc(T, size(self.shape)) catch return DataError.AllocationFailed;
             @memcpy(data, self.data);
             return .{
                 .allocator = self.allocator,
@@ -261,13 +261,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///     > 複製元のアロケータを使用
         pub fn clone(self: @This()) Error!@This() {
             var view_idx: [n]usize = .{0} ** n;
-            const data = self.allocator.alloc(T, size(&self.shape)) catch return DataError.AllocationFailed;
-            const dsize = size(&self.shape);
+            const data = self.allocator.alloc(T, size(self.shape)) catch return DataError.AllocationFailed;
+            const dsize = size(self.shape);
             for (0..dsize) |i| {
-                defer incrementViewIndex(&self.shape, &view_idx);
-                data[i] = self.get(&view_idx) catch |e| return e;
+                defer incrementViewIndex(self.shape, &view_idx);
+                data[i] = self.get(view_idx) catch |e| return e;
             }
-            const strides = stridesFromShape(n)(self.shape);
+            const strides = stridesFromShape(self.shape);
             return .{
                 .allocator = self.allocator,
                 .shape = self.shape,
@@ -281,45 +281,36 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         pub fn getOrderedData(self: @This()) Error!std.ArrayList(T) {
             var list = std.ArrayList(T).init(self.allocator);
             errdefer list.deinit();
-            list.ensureTotalCapacity(size(&self.shape)) catch return DataError.AllocationFailed;
+            list.ensureTotalCapacity(size(self.shape)) catch return DataError.AllocationFailed;
 
             var view_idx: [n]usize = .{0} ** n;
-            for (0..size(&self.shape)) |_| {
-                defer incrementViewIndex(&self.shape, &view_idx);
-                list.appendAssumeCapacity((self.get(&view_idx) catch |e| return e));
+            for (0..size(self.shape)) |_| {
+                defer incrementViewIndex(self.shape, &view_idx);
+                list.appendAssumeCapacity((self.get(view_idx) catch |e| return e));
             }
             return list;
         }
 
         /// 目的
         ///     > Denseの配列要素のゲッター
-        /// 補足
-        ///     > ライブラリ外からの使用を想定し、sliceを引数に取る
-        pub fn get(self: @This(), view_idx: []const usize) IndexingError!T {
-            if (n != view_idx.len) return IndexingError.NumDimensionsMismatch;
-            checkIndexInRange(&self.shape, view_idx) catch |e| return e;
-            var shape: [n]usize = undefined;
-            @memcpy(&shape, view_idx);
-            const data_idx = dataIndex(n)(self.strides, shape) catch |e| return e;
+        pub fn get(self: @This(), view_idx: [n]usize) IndexingError!T {
+            checkIndexInRange(self.shape, view_idx) catch |e| return e;
+            const data_idx = dataIndex(self.strides, view_idx) catch |e| return e;
             return self.data[data_idx];
         }
 
         /// 目的
         ///     > Denseの配列要素のセッター
-        /// 補足
-        ///     > ライブラリ外からの使用を想定し、sliceを引数に取る
-        pub fn set(self: *@This(), view_idx: []const usize, value: T) IndexingError!void {
-            if (n != view_idx.len) return IndexingError.NumDimensionsMismatch;
-            var view_idx_array: [n]usize = undefined;
-            @memcpy(&view_idx_array, view_idx);
-            const data_idx = dataIndex(n)(self.strides, view_idx_array) catch |e| return e;
+        pub fn set(self: *@This(), view_idx: [n]usize, value: T) IndexingError!void {
+            checkIndexInRange(self.shape, view_idx) catch |e| return e;
+            const data_idx = dataIndex(self.strides, view_idx) catch |e| return e;
             self.data[data_idx] = value;
         }
 
         /// Target
         ///     配列座標をスライスした新たな配列を取得
         /// 使用例
-        ///     const arr2 = try arr.slice(&.{ &.{1}, &.{ 0, 2 }, &.{} });
+        ///     const arr2 = try arr.slice(.{ &.{1}, &.{ 0, 2 }, &.{} });
         /// 補足
         ///     引数indices_arr: 配列各軸のスライスする位置を指定、無指定はその軸の全てをスライスする
         ///     data_indicesはview_idx順に入るので、データ再配列がここで起きる
@@ -328,17 +319,16 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///         スコープを出たらdeinit()される
         ///         arena_allocatorとかでは若干だが容量を圧迫する事に注意
         /// その他
-        ///     各軸について特定の範囲を指定してブロック状にスライスする"block(T, n) fn (arr, rangedindices: [][2]const usize)は実装を検討中
-        pub fn slice(self: @This(), indices_array: []const []const usize) Error!@This() {
-            if (n != indices_array.len) return IndexingError.NumDimensionsMismatch;
+        ///     各軸について特定の範囲を指定してブロック状にスライスする"block(T, n) fn (arr, rangedindices: [n][2]usize)は実装を検討中
+        pub fn slice(self: @This(), indices_array: [n][]const usize) Error!@This() {
             var shape: [n]usize = undefined;
-            for (0..shape.len) |ax| shape[ax] = if (0 == indices_array[ax].len) self.shape[ax] else indices_array[ax].len;
+            for (0..n) |ax| shape[ax] = if (0 == indices_array[ax].len) self.shape[ax] else indices_array[ax].len;
             for (self.shape, shape) |x, y| if (x < y) return IndexingError.DimensionsMismatch;
             for (indices_array, 0..) |indices, i| {
                 for (indices) |idx| if (idx >= self.shape[i]) return IndexingError.DimensionsMismatch;
             }
 
-            const slice_size = size(&shape);
+            const slice_size = size(shape);
             var data_indices = std.ArrayList(usize).init(self.allocator);
             defer data_indices.deinit();
             data_indices.ensureTotalCapacity(slice_size) catch return DataError.AllocationFailed;
@@ -346,24 +336,24 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             var view_idx: [n]usize = undefined;
 
             for (0..slice_size) |_| {
-                defer incrementViewIndex(&shape, &sliced_view_idx);
+                defer incrementViewIndex(shape, &sliced_view_idx);
                 for (0..self.shape.len) |i| {
                     view_idx[i] = switch (indices_array[i].len) {
                         0 => sliced_view_idx[i],
                         else => indices_array[i][sliced_view_idx[i]],
                     };
                 }
-                data_indices.appendAssumeCapacity(dataIndex(n)(self.strides, view_idx) catch |e| return e);
+                data_indices.appendAssumeCapacity(dataIndex(self.strides, view_idx) catch |e| return e);
             }
 
-            var data = self.allocator.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            var data = self.allocator.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             errdefer self.allocator.free(data);
 
             for (data_indices.items, 0..) |idx, i| data[i] = self.data[idx];
             return .{
                 .allocator = self.allocator,
                 .shape = shape,
-                .strides = stridesFromShape(n)(shape),
+                .strides = stridesFromShape(shape),
                 .data = data,
             };
         }
@@ -377,16 +367,16 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///     transpose()などでstridesの降順が乱れている場合、アクセスパターンを確定できない為エラーを出す
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
         pub fn reshape(self: @This(), comptime m: usize, shape: [m]usize) Error!Dense(T, m) {
-            if (size(&self.shape) != size(&shape)) return IndexingError.SizeMismatch;
+            if (size(self.shape) != Dense(T, m).size(shape)) return IndexingError.SizeMismatch;
             if (!self.isAligned()) return IndexingError.StridesNotOrdered;
 
-            const data = self.allocator.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = self.allocator.alloc(T, Dense(T, m).size(shape)) catch return DataError.AllocationFailed;
             @memcpy(data, self.data);
 
             return .{
                 .allocator = self.allocator,
                 .shape = shape,
-                .strides = stridesFromShape(m)(shape),
+                .strides = Dense(T, m).stridesFromShape(shape),
                 .data = data,
             };
         }
@@ -417,14 +407,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn trans(self: *const @This(), order: []const usize) IndexingError!void {
+        pub fn trans(self: *const @This(), order: [n]usize) IndexingError!void {
             comptime if (n < 2) @compileError("Invalid number of dimension");
             var shape = self.shape;
             var strides = self.strides;
-            if (order.len != self.shape.len) return IndexingError.NumDimensionsMismatch;
-            for (0..order.len) |i| {
+            for (0..n) |i| {
                 var flag = true;
-                for (0..order.len) |j| {
+                for (0..n) |j| {
                     if (j == i) flag = false;
                 }
                 if (flag) return IndexingError.DimensionsMismatch;
@@ -453,7 +442,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             shape[1] = self.shape[0];
             strides[0] = self.strides[1];
             strides[1] = self.strides[0];
-            const data = self.allocator.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = self.allocator.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             @memcpy(data, self.data);
 
             return .{
@@ -471,14 +460,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn getTrans(self: @This(), order: []const usize) Error!@This() {
+        pub fn getTrans(self: @This(), order: [n]usize) Error!@This() {
             comptime if (n < 2) @compileError("Invalid number of dimension");
             var shape = self.shape;
             var strides = self.strides;
-            if (order.len != self.shape.len) return IndexingError.NumDimensionsMismatch;
-            for (0..order.len) |i| {
+            for (0..n) |i| {
                 var flag = true;
-                for (0..order.len) |j| {
+                for (0..n) |j| {
                     if (j == i) flag = false;
                 }
                 if (flag) return IndexingError.DimensionsMismatch;
@@ -487,7 +475,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
                 shape[d] = self.shape[ax];
                 strides[d] = self.strides[ax];
             }
-            const data = self.allocator.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = self.allocator.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             @memcpy(data, self.data);
 
             return .{
@@ -528,7 +516,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             const lwork = c; // nと同じ値
 
             // Out
-            const data = obj_alc.alloc(T, size(&shape)) catch return DataError.AllocationFailed;
+            const data = obj_alc.alloc(T, size(shape)) catch return DataError.AllocationFailed;
             errdefer obj_alc.free(data);
             @memcpy(data, self.data);
 
@@ -562,28 +550,23 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return .{
                 .allocator = obj_alc,
                 .shape = shape,
-                .strides = stridesFromShape(2)(shape),
+                .strides = stridesFromShape(shape),
                 .data = data,
             };
         }
-    };
-}
+        /// Target
+        ///     配列座標(shape)の最大要素数(size)を計算
+        pub fn size(shape: [n]usize) usize {
+            var ans: usize = 1;
+            for (shape) |ax| ans *= ax;
+            return ans;
+        }
 
-/// Target
-///     配列座標(shape)の最大要素数(size)を計算
-pub fn size(shape: []const usize) usize {
-    var ans: usize = 1;
-    for (shape) |ax| ans *= ax;
-    return ans;
-}
-
-/// Target
-///     配列座標(shape)のstrideを計算
-/// 補足
-///     column-majorなので、stridesは次元の昇順に計算される
-pub fn stridesFromShape(comptime n: usize) fn (shape: [n]usize) [n]usize {
-    return struct {
-        fn f(shape: [n]usize) [n]usize {
+        /// Target
+        ///     配列座標(shape)のstrideを計算
+        /// 補足
+        ///     column-majorなので、stridesは次元の昇順に計算される
+        pub fn stridesFromShape(shape: [n]usize) [n]usize {
             var strides: [n]usize = undefined;
             var unit: usize = 1;
             for (0..shape.len) |i| {
@@ -592,21 +575,17 @@ pub fn stridesFromShape(comptime n: usize) fn (shape: [n]usize) [n]usize {
             }
             return strides;
         }
-    }.f;
-}
 
-/// Target
-///     getなどで配列要素にアクセスする時に、そのインデックスが妥当かどうか確認
-///     配列座標(shape)の中に対象点(arrayindex)が収まるかどうか確認
-pub fn checkIndexInRange(shape: []const usize, arrayidx: []const usize) IndexingError!void {
-    for (shape, arrayidx) |ax, idx| if (ax <= idx) return IndexingError.ArrayindexOutOfRange;
-}
+        /// Target
+        ///     getなどで配列要素にアクセスする時に、そのインデックスが妥当かどうか確認
+        ///     配列座標(shape)の中に対象点(arrayindex)が収まるかどうか確認
+        pub fn checkIndexInRange(shape: [n]usize, arrayidx: [n]usize) IndexingError!void {
+            for (shape, arrayidx) |ax, idx| if (ax <= idx) return IndexingError.ArrayindexOutOfRange;
+        }
 
-/// Target
-///     stridesを利用してビューインデックスからデータインデックスを計算
-pub fn dataIndex(comptime n: usize) fn (strides: [n]usize, view_index: [n]usize) IndexingError!usize {
-    return struct {
-        fn f(strides: [n]usize, view_index: [n]usize) IndexingError!usize {
+        /// Target
+        ///     stridesを利用してビューインデックスからデータインデックスを計算
+        pub fn dataIndex(strides: [n]usize, view_index: [n]usize) IndexingError!usize {
             for (strides) |stride| if (0 == stride) return IndexingError.ZeroStride;
 
             var linearidx: usize = 0;
@@ -615,58 +594,52 @@ pub fn dataIndex(comptime n: usize) fn (strides: [n]usize, view_index: [n]usize)
             }
             return linearidx;
         }
-    }.f;
-}
 
-/// Target
-///     配列座標(shape, order, strides)を利用してデータインデックス(線形)からビューインデックス(アレイ)を計算
-pub fn viewIndex(comptime n: usize) fn (shape: [n]usize, strides: [n]usize, data_idx: usize) Error![n]usize {
-    return struct {
-        fn f(shape: [n]usize, strides: [n]usize, data_idx: usize) Error![n]usize {
+        /// Target
+        ///     配列座標(shape, order, strides)を利用してデータインデックス(線形)からビューインデックス(アレイ)を計算
+        pub fn viewIndex(shape: [n]usize, strides: [n]usize, data_idx: usize) Error![n]usize {
             for (strides) |stride| if (0 == stride) return IndexingError.ZeroStride;
             for (shape) |ax| if (0 == ax) return IndexingError.ZeroDimension;
-            if (size(&shape) <= data_idx) return IndexingError.LinearindexOutOfRange;
+            if (size(shape) <= data_idx) return IndexingError.LinearindexOutOfRange;
 
             var view_idx = shape.init(shape.len) catch unreachable;
-            var strides_checked = stridesFromShape(n).init(strides.len) catch unreachable;
-            @memcpy(&strides_checked, strides);
             var _data_idx = data_idx;
 
             //std.debug.print("DEBUG: shape: {d}\n\n", .{shape});
             //std.debug.print("DEBUG: strides: {d}\n\n", .{strides});
             for (0..strides.len) |_| {
-                const dim_max_stride: usize = std.sort.argMax(usize, strides_checked, {}, std.sort.asc(usize)).?;
-                const max_stride: usize = strides_checked[dim_max_stride];
+                const dim_max_stride: usize = std.sort.argMax(usize, strides, {}, std.sort.asc(usize)).?;
+                const max_stride: usize = strides[dim_max_stride];
 
                 var ax: usize = dim_max_stride;
                 for (0..shape.len) |d| {
-                    if (strides[d] == max_stride and shape[d] > shape[ax] and strides_checked[d] != 0) ax = d;
+                    if (strides[d] == max_stride and shape[d] > shape[ax] and strides[d] != 0) ax = d;
                 }
 
                 const idx = @divFloor(_data_idx, max_stride);
                 view_idx[ax] = @divFloor(_data_idx, max_stride);
                 _data_idx -= idx * max_stride;
-                strides_checked[ax] = 0;
+                strides[ax] = 0;
             }
             return view_idx;
         }
-    }.f;
-}
 
-/// Target
-///     view_idxをcolumn-major(昇順)でインクリメント
-/// 補足
-///     ビューインデックスはmutable
-pub fn incrementViewIndex(shape: []const usize, view_idx: []usize) void {
-    if (shape.len != view_idx.len) unreachable;
-    for (0..shape.len) |i| {
-        if (shape[i] - 1 < view_idx[i]) unreachable;
-        if (shape[i] - 1 > view_idx[i]) {
-            view_idx[i] += 1;
-            break;
+        /// Target
+        ///     view_idxをcolumn-major(昇順)でインクリメント
+        /// 補足
+        ///     ビューインデックスはmutable
+        pub fn incrementViewIndex(shape: [n]usize, view_idx: *[n]usize) void {
+            if (shape.len != view_idx.len) unreachable;
+            for (0..shape.len) |i| {
+                if (shape[i] - 1 < view_idx[i]) unreachable;
+                if (shape[i] - 1 > view_idx[i]) {
+                    view_idx[i] += 1;
+                    break;
+                }
+                view_idx[i] = 0;
+            }
         }
-        view_idx[i] = 0;
-    }
+    };
 }
 
 // unit tests
@@ -773,12 +746,12 @@ test "get" {
         const dense = try Dense(f32, 3).ones(alloc, shape);
         defer dense.destroy();
         try dense.print();
-        std.debug.print("[0, 0, 0]: {?d}\n", .{(try dense.get(&.{ 0, 0, 0 }))});
-        std.debug.print("[0, 1, 0]: {?d}\n", .{(try dense.get(&.{ 0, 1, 0 }))});
-        std.debug.print("[0, 2, 0]: {?d}\n", .{(try dense.get(&.{ 0, 2, 0 }))});
-        std.debug.print("[1, 0, 0]: {?d}\n", .{(try dense.get(&.{ 1, 0, 0 }))});
-        std.debug.print("[1, 1, 0]: {?d}\n", .{(try dense.get(&.{ 1, 1, 0 }))});
-        std.debug.print("[1, 2, 0]: {?d}\n", .{(try dense.get(&.{ 1, 2, 0 }))});
+        std.debug.print("[0, 0, 0]: {?d}\n", .{(try dense.get(.{ 0, 0, 0 }))});
+        std.debug.print("[0, 1, 0]: {?d}\n", .{(try dense.get(.{ 0, 1, 0 }))});
+        std.debug.print("[0, 2, 0]: {?d}\n", .{(try dense.get(.{ 0, 2, 0 }))});
+        std.debug.print("[1, 0, 0]: {?d}\n", .{(try dense.get(.{ 1, 0, 0 }))});
+        std.debug.print("[1, 1, 0]: {?d}\n", .{(try dense.get(.{ 1, 1, 0 }))});
+        std.debug.print("[1, 2, 0]: {?d}\n", .{(try dense.get(.{ 1, 2, 0 }))});
         const data0 = try dense.getOrderedData();
         const data1 = try dense.getOrderedData();
         const data2 = try dense.getOrderedData();
@@ -791,12 +764,12 @@ test "get" {
         defer data3.deinit();
         defer data4.deinit();
         defer data5.deinit();
-        try std.testing.expect((try dense.get(&.{ 0, 0, 0 })) == data0.items[0]);
-        try std.testing.expect((try dense.get(&.{ 0, 1, 0 })) == data1.items[1]);
-        try std.testing.expect((try dense.get(&.{ 0, 2, 0 })) == data2.items[2]);
-        try std.testing.expect((try dense.get(&.{ 1, 0, 0 })) == data3.items[3]);
-        try std.testing.expect((try dense.get(&.{ 1, 1, 0 })) == data4.items[4]);
-        try std.testing.expect((try dense.get(&.{ 1, 2, 0 })) == data5.items[5]);
+        try std.testing.expect((try dense.get(.{ 0, 0, 0 })) == data0.items[0]);
+        try std.testing.expect((try dense.get(.{ 0, 1, 0 })) == data1.items[1]);
+        try std.testing.expect((try dense.get(.{ 0, 2, 0 })) == data2.items[2]);
+        try std.testing.expect((try dense.get(.{ 1, 0, 0 })) == data3.items[3]);
+        try std.testing.expect((try dense.get(.{ 1, 1, 0 })) == data4.items[4]);
+        try std.testing.expect((try dense.get(.{ 1, 2, 0 })) == data5.items[5]);
     }
     std.debug.print("...SUCCESS\n", .{});
     std.debug.print("\n", .{});
@@ -819,7 +792,7 @@ test "slice" {
         defer dense.destroy();
         try dense.print();
 
-        const slice = try dense.slice(&.{ &.{}, &.{ 0, 2 }, &.{0} });
+        const slice = try dense.slice(.{ &.{}, &.{ 0, 2 }, &.{0} });
         defer slice.destroy();
         try slice.print();
 
@@ -880,13 +853,13 @@ test "transpose" {
         const arr = try Dense(f32, 2).from(alloc, shape, list.items);
         defer arr.destroy();
         try arr.print();
-        const arrT = try arr.getTrans(&.{ 1, 0 });
+        const arrT = try arr.getTrans(.{ 1, 0 });
         defer arrT.destroy();
         try arrT.print();
         const arrT_ = try arrT.clone();
         defer arrT_.destroy();
         try arrT_.print();
-        const arrTr = try arrT_.getTrans(&.{ 1, 0 });
+        const arrTr = try arrT_.getTrans(.{ 1, 0 });
         defer arrTr.destroy();
         try arrTr.print();
         const arr_ = try arrTr.clone();
@@ -906,13 +879,13 @@ test "transpose" {
         const arr0 = try Dense(f32, 6).from(alloc, shape, list.items);
         defer arr0.destroy();
         try arr0.print();
-        const arr1 = try arr0.getTrans(&.{ 0, 1, 3, 4, 2, 5 });
+        const arr1 = try arr0.getTrans(.{ 0, 1, 3, 4, 2, 5 });
         defer arr1.destroy();
         try arr1.print();
-        const arr2 = try arr1.getTrans(&.{ 0, 1, 3, 4, 2, 5 });
+        const arr2 = try arr1.getTrans(.{ 0, 1, 3, 4, 2, 5 });
         defer arr2.destroy();
         try arr2.print();
-        const arr3 = try arr2.getTrans(&.{ 0, 1, 3, 4, 2, 5 });
+        const arr3 = try arr2.getTrans(.{ 0, 1, 3, 4, 2, 5 });
         defer arr3.destroy();
         try arr3.print();
         try std.testing.expect(std.mem.eql(f32, arr0.data, arr3.data));
@@ -989,7 +962,7 @@ test "exception check" {
         const dense = try Dense(f32, 2).ones(alloc, shape);
         defer dense.destroy();
 
-        try std.testing.expectError(IndexingError.ArrayindexOutOfRange, dense.get(&.{ 2, 2 }));
+        try std.testing.expectError(IndexingError.ArrayindexOutOfRange, dense.get(.{ 2, 2 }));
     }
     std.debug.print("...SUCCESS\n\n", .{});
 }
