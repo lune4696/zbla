@@ -25,7 +25,7 @@ pub fn gemm(comptime T: type) fn (a: *const arr.Dense(T, 2), b: *const arr.Dense
                 f32, f64 => {},
                 else => return arr.TypeError.DataTypeNotImplemented,
             }
-            if (a.shape[1] != b.shape[0]) return arr.ShapeError.DimensionsMismatch;
+            if (a.shape[1] != b.shape[0]) return arr.IndexingError.DimensionsMismatch;
 
             const m: i32 = @intCast(a.shape[0]);
             const n: i32 = @intCast(b.shape[1]);
@@ -133,7 +133,7 @@ pub fn gemv(comptime T: type) fn (a: *const arr.Dense(T, 2), x: *const arr.Dense
                 f32, f64 => {},
                 else => return arr.TypeError.DataTypeNotImplemented,
             }
-            if (a.shape[1] != x.shape[0]) return arr.ShapeError.DimensionsMismatch;
+            if (a.shape[1] != x.shape[0]) return arr.IndexingError.DimensionsMismatch;
 
             const m: i32 = @intCast(a.shape[0]);
             const n: i32 = @intCast(a.shape[1]);
@@ -192,7 +192,7 @@ pub fn axpy(comptime T: type) fn (x: *const arr.Dense(T, 1), y: *const arr.Dense
                 f32, f64 => {},
                 else => return arr.TypeError.DataTypeNotImplemented,
             }
-            if (x.shape[0] != y.shape[0]) return arr.ShapeError.DimensionsMismatch;
+            if (x.shape[0] != y.shape[0]) return arr.IndexingError.DimensionsMismatch;
 
             const n: i32 = @intCast(x.shape[0]);
             // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
@@ -224,7 +224,7 @@ pub fn dot(comptime T: type) fn (x: *const arr.Dense(T, 1), y: *const arr.Dense(
                 f32, f64 => {},
                 else => return arr.TypeError.DataTypeNotImplemented,
             }
-            if (x.shape[0] != y.shape[0]) return arr.ShapeError.DimensionsMismatch;
+            if (x.shape[0] != y.shape[0]) return arr.IndexingError.DimensionsMismatch;
 
             const n: i32 = @intCast(x.shape[0]);
             // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
@@ -276,9 +276,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f32, 2)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 1, -1, -2, 0, 1, 0, 2, 1 };
         const b_data = &.{ -0.5, -0.75, 0.25, 0.5, 0.25, 0.25, -1, -0.5, 0.5 };
@@ -304,9 +304,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f32, 2) (trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -314,11 +314,11 @@ test "gemm" {
 
         const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
-        try a.tr();
+        a.tr();
 
         const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
-        try b.tr();
+        b.tr();
 
         const c = try arr.Dense(f32, 2).any(alc, c_shape);
         defer c.destroy();
@@ -333,9 +333,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f32, 2) (trans, no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -343,7 +343,7 @@ test "gemm" {
 
         const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
-        try a.tr();
+        a.tr();
 
         const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
@@ -361,9 +361,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f32, 2) (no trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -374,7 +374,7 @@ test "gemm" {
 
         const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
-        try b.tr();
+        b.tr();
 
         const c = try arr.Dense(f32, 2).any(alc, c_shape);
         defer c.destroy();
@@ -389,9 +389,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f64, 2)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 1, -1, -2, 0, 1, 0, 2, 1 };
         const b_data = &.{ -0.5, -0.75, 0.25, 0.5, 0.25, 0.25, -1, -0.5, 0.5 };
@@ -417,9 +417,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f64, 2) (trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -427,11 +427,11 @@ test "gemm" {
 
         const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
-        try a.tr();
+        a.tr();
 
         const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
-        try b.tr();
+        b.tr();
 
         const c = try arr.Dense(f64, 2).any(alc, c_shape);
         defer c.destroy();
@@ -446,9 +446,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f64, 2) (trans, no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -456,7 +456,7 @@ test "gemm" {
 
         const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
-        try a.tr();
+        a.tr();
 
         const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
@@ -474,9 +474,9 @@ test "gemm" {
 
     {
         std.debug.print("VERIFY: gemm(f64, 2) (no trans, trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const b_shape = &.{ 3, 3 };
-        const c_shape = &.{ 3, 3 };
+        const a_shape = .{ 3, 3 };
+        const b_shape = .{ 3, 3 };
+        const c_shape = .{ 3, 3 };
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -487,7 +487,7 @@ test "gemm" {
 
         const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
-        try b.tr();
+        b.tr();
 
         const c = try arr.Dense(f64, 2).any(alc, c_shape);
         defer c.destroy();
@@ -509,9 +509,9 @@ test "gemv" {
 
     {
         std.debug.print("VERIFY: gemv(f32, 2) (no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const a_shape = .{ 3, 3 };
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const x_data = &.{ 1, 2, 3 };
@@ -537,9 +537,9 @@ test "gemv" {
 
     {
         std.debug.print("VERIFY: gemv(f32, 2) (trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const a_shape = .{ 3, 3 };
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const x_data = &.{ 1, 2, 3 };
@@ -548,7 +548,7 @@ test "gemv" {
 
         const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
-        try a.tr();
+        a.tr();
 
         const x = try arr.Dense(f32, 1).from(alc, x_shape, x_data);
         defer x.destroy();
@@ -566,9 +566,9 @@ test "gemv" {
 
     {
         std.debug.print("VERIFY: gemv(f64, 2) (no trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const a_shape = .{ 3, 3 };
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const x_data = &.{ 1, 2, 3 };
@@ -594,9 +594,9 @@ test "gemv" {
 
     {
         std.debug.print("VERIFY: gemv(f64, 2) (trans)...\n", .{});
-        const a_shape = &.{ 3, 3 };
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const a_shape = .{ 3, 3 };
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const a_data = &.{ 1, 2, 3, 4, 5, 6, 7, 8, 9 };
         const x_data = &.{ 1, 2, 3 };
@@ -605,7 +605,7 @@ test "gemv" {
 
         const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
-        try a.tr();
+        a.tr();
 
         const x = try arr.Dense(f64, 1).from(alc, x_shape, x_data);
         defer x.destroy();
@@ -630,8 +630,8 @@ test "axpy" {
 
     {
         std.debug.print("VERIFY: axpy(f32, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const x_data = &.{ 1, 2, 3 };
         const y_data = &.{ 1, 2, 3 };
@@ -655,8 +655,8 @@ test "axpy" {
 
     {
         std.debug.print("VERIFY: axpy(f64, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const x_data = &.{ 1, 2, 3 };
         const y_data = &.{ 1, 2, 3 };
@@ -687,7 +687,7 @@ test "scal" {
 
     {
         std.debug.print("VERIFY: scal(f32, 2)...\n", .{});
-        const x_shape = &.{3};
+        const x_shape = .{3};
 
         const x_data = &.{ 1, 2, 3 };
         const alpha = 3;
@@ -707,7 +707,7 @@ test "scal" {
 
     {
         std.debug.print("VERIFY: scal(f64, 2)...\n", .{});
-        const x_shape = &.{3};
+        const x_shape = .{3};
 
         const x_data = &.{ 1, 2, 3 };
         const alpha = 3;
@@ -734,8 +734,8 @@ test "dot" {
 
     {
         std.debug.print("VERIFY: dot(f32, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const x_data = &.{ 1, 2, 3 };
         const y_data = &.{ 1, 2, 3 };
@@ -757,8 +757,8 @@ test "dot" {
 
     {
         std.debug.print("VERIFY: dot(f64, 2)...\n", .{});
-        const x_shape = &.{3};
-        const y_shape = &.{3};
+        const x_shape = .{3};
+        const y_shape = .{3};
 
         const x_data = &.{ 1, 2, 3 };
         const y_data = &.{ 1, 2, 3 };
