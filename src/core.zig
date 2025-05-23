@@ -388,16 +388,16 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn tr(self: *const @This()) void {
+        pub fn tr(self: *@This()) void {
             comptime if (n != 2) @compileError("Invalid number of dimension");
             const dim0 = self.shape[0];
             const dim1 = self.shape[1];
             const stride0 = self.strides[0];
             const stride1 = self.strides[1];
-            @constCast(self).shape[0] = dim1;
-            @constCast(self).shape[1] = dim0;
-            @constCast(self).strides[0] = stride1;
-            @constCast(self).strides[1] = stride0;
+            self.shape[0] = dim1;
+            self.shape[1] = dim0;
+            self.strides[0] = stride1;
+            self.strides[1] = stride0;
         }
 
         /// Target
@@ -407,7 +407,7 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
         ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
         ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
-        pub fn trans(self: *const @This(), order: [n]usize) IndexingError!void {
+        pub fn trans(self: *@This(), order: [n]usize) IndexingError!void {
             comptime if (n < 2) @compileError("Invalid number of dimension");
             var shape = self.shape;
             var strides = self.strides;
@@ -423,8 +423,8 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
                 strides[d] = self.strides[ax];
             }
 
-            @constCast(self).shape = shape;
-            @constCast(self).strides = strides;
+            self.shape = shape;
+            self.strides = strides;
         }
 
         /// Target
@@ -852,19 +852,29 @@ test "transpose" {
 
         const arr = try Dense(f32, 2).from(alloc, shape, list.items);
         defer arr.destroy();
+        try std.testing.expect(arr.isAligned());
         try arr.print();
+
         const arrT = try arr.getTrans(.{ 1, 0 });
         defer arrT.destroy();
+        try std.testing.expect(!arrT.isAligned());
         try arrT.print();
+
         const arrT_ = try arrT.clone();
         defer arrT_.destroy();
+        try std.testing.expect(arrT_.isAligned());
         try arrT_.print();
+
         const arrTr = try arrT_.getTrans(.{ 1, 0 });
         defer arrTr.destroy();
+        try std.testing.expect(!arrTr.isAligned());
         try arrTr.print();
+
         const arr_ = try arrTr.clone();
         defer arr_.destroy();
+        try std.testing.expect(arr_.isAligned());
         try arr_.print();
+
         try std.testing.expect(std.mem.eql(f32, arr.data, arr_.data));
         std.debug.print("...SUCCESS\n", .{});
     }

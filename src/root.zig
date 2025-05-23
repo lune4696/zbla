@@ -10,12 +10,14 @@
 //!
 const std = @import("std");
 
-pub const core = @import("./core/bind.zig");
+pub const core = @import("./core.zig");
+pub const math = @import("./math.zig");
 pub const graph = @import("./graph/bind.zig");
 pub const solver = @import("./solver/bind.zig");
 
 test "src/root" {
     std.testing.refAllDecls(core);
+    std.testing.refAllDecls(math);
     std.testing.refAllDecls(graph);
     std.testing.refAllDecls(solver);
 }

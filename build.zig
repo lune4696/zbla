@@ -1,13 +1,13 @@
 const std = @import("std");
 
-pub fn linkZigLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, libs: []const []const u8) void {
+pub fn linkZigLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, libs: []const []const u8, mods: []const []const u8) void {
     // add dependency libraries
-    for (libs) |lib| {
+    for (libs, mods) |lib, mod| {
         const lib_dep = b.dependency(lib, .{
             .target = target,
         });
-        const lib_mod = lib_dep.module(lib);
-        comp.root_module.addImport(lib, lib_mod);
+        const lib_mod = lib_dep.module(mod);
+        comp.root_module.addImport(mod, lib_mod);
     }
 }
 
@@ -29,16 +29,13 @@ pub fn linkCLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.
         .linux => {
             comp.linkSystemLibrary("cblas");
             comp.linkSystemLibrary("lapack");
-            comp.linkSystemLibrary("mpi");
+            //comp.linkSystemLibrary("mpi");
         },
         .windows => {
 
             // windows
             const path_windows_openblas_lib: std.Build.LazyPath = b.path("./lib/windows/openblas/lib/libopenblas.lib");
             const path_windows_openblas_include: std.Build.LazyPath = b.path("./lib/windows/openblas/include");
-            comp.linkSystemLibrary("gdi32");
-            comp.linkSystemLibrary("winmm");
-            comp.linkSystemLibrary("opengl32");
             comp.addObjectFile(path_windows_openblas_lib);
             comp.addIncludePath(path_windows_openblas_include);
         },
@@ -47,7 +44,7 @@ pub fn linkCLibraries(b: *std.Build, comp: *std.Build.Step.Compile, target: std.
     comp.linkLibC();
 }
 
-pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe_name: []const u8, root_file: []const u8, libs: []const []const u8) void {
+pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, exe_name: []const u8, root_file: []const u8, zig_libs: []const []const u8, zig_mods: []const []const u8) void {
     const exe = b.addExecutable(.{
         .name = exe_name,
         .root_source_file = b.path(root_file),
@@ -61,12 +58,12 @@ pub fn compileOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, optimize:
     });
     exe.root_module.addImport(exe_name, mod);
 
-    linkZigLibraries(b, exe, target, libs);
+    linkZigLibraries(b, exe, target, zig_libs, zig_mods);
     linkCLibraries(b, exe, target);
     b.installArtifact(exe);
 }
 
-pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: []const u8, libs: []const []const u8) void {
+pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: []const u8, zig_libs: []const []const u8, zig_mods: []const []const u8) void {
     const test_step = b.step("test", "Run unit tests");
 
     const unit_tests = b.addTest(.{
@@ -75,7 +72,7 @@ pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: [
         //.test_runner = b.path("./test_runner.zig"),
     });
 
-    linkZigLibraries(b, unit_tests, target, libs);
+    linkZigLibraries(b, unit_tests, target, zig_libs, zig_mods);
     linkCLibraries(b, unit_tests, target);
 
     const run_tests = b.addRunArtifact(unit_tests);
@@ -90,7 +87,8 @@ pub fn testOnLinux(b: *std.Build, target: std.Build.ResolvedTarget, root_file: [
 pub fn build(b: *std.Build) void {
     const exe_name = "zbla";
     const root_file = "src/root.zig";
-    const libs: []const []const u8 = &.{};
+    const zig_libs: []const []const u8 = &.{};
+    const zig_mods: []const []const u8 = &.{};
     //const target = b.standardTargetOptions(.{});
     const target = b.standardTargetOptions(.{
         .default_target = .{
@@ -102,6 +100,6 @@ pub fn build(b: *std.Build) void {
         .preferred_optimize_mode = .ReleaseFast,
     });
 
-    compileOnLinux(b, target, optimize, exe_name, root_file, libs);
-    testOnLinux(b, target, root_file, libs);
+    compileOnLinux(b, target, optimize, exe_name, root_file, zig_libs, zig_mods);
+    testOnLinux(b, target, root_file, zig_libs, zig_mods);
 }

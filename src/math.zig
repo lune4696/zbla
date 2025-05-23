@@ -6,7 +6,7 @@ const lapack = @cImport({
     @cInclude("lapack.h");
 });
 
-const arr = @import("./array.zig");
+const core = @import("./core.zig");
 
 /// 目的
 ///     汎用行列-行列算術演算(GEneral Matrix-Matrix operation (GEMM), level 3 BLAS)
@@ -16,16 +16,16 @@ const arr = @import("./array.zig");
 ///     where T = f32 or f64
 ///     alpha: T
 ///     beta: T,
-///     a: Dense(T, 2), m by k matrix
-///     b: Dense(T, 2), k by n matrix
-pub fn gemm(comptime T: type) fn (a: *const arr.Dense(T, 2), b: *const arr.Dense(T, 2), c: *const arr.Dense(T, 2), alpha: T, beta: T) arr.Error!void {
+///     a: Matrix(T), m by k matrix
+///     b: Matrix(T), k by n matrix
+pub fn gemm(comptime T: type) fn (a: core.Matrix(T), b: core.Matrix(T), c: core.Matrix(T), alpha: T, beta: T) core.Error!void {
     return struct {
-        fn f(a: *const arr.Dense(T, 2), b: *const arr.Dense(T, 2), c: *const arr.Dense(T, 2), alpha: T, beta: T) arr.Error!void {
+        fn f(a: core.Matrix(T), b: core.Matrix(T), c: core.Matrix(T), alpha: T, beta: T) core.Error!void {
             switch (T) {
                 f32, f64 => {},
-                else => return arr.TypeError.DataTypeNotImplemented,
+                else => @compileError("Invalid type: f32 and f64 are accepted."),
             }
-            if (a.shape[1] != b.shape[0]) return arr.IndexingError.DimensionsMismatch;
+            if (a.shape[1] != b.shape[0]) return core.IndexingError.DimensionsMismatch;
 
             const m: i32 = @intCast(a.shape[0]);
             const n: i32 = @intCast(b.shape[1]);
@@ -123,17 +123,17 @@ pub fn gemm(comptime T: type) fn (a: *const arr.Dense(T, 2), b: *const arr.Dense
 ///     where T = f32 or f64
 ///     alpha: T
 ///     beta: T,
-///     a: Dense(T, 2), m by n matrix
-///     x: Dense(T, 1), n row vector
-///     y: Dense(T, 1), m row vector
-pub fn gemv(comptime T: type) fn (a: *const arr.Dense(T, 2), x: *const arr.Dense(T, 1), y: *const arr.Dense(T, 1), alpha: T, beta: T) arr.Error!void {
+///     a: Matrix(T), m by n matrix
+///     x: Vector(T), n row vector
+///     y: Vector(T), m row vector
+pub fn gemv(comptime T: type) fn (a: core.Matrix(T), x: core.Vector(T), y: core.Vector(T), alpha: T, beta: T) core.Error!void {
     return struct {
-        fn f(a: *const arr.Dense(T, 2), x: *const arr.Dense(T, 1), y: *const arr.Dense(T, 1), alpha: T, beta: T) arr.Error!void {
+        fn f(a: core.Matrix(T), x: core.Vector(T), y: core.Vector(T), alpha: T, beta: T) core.Error!void {
             switch (T) {
                 f32, f64 => {},
-                else => return arr.TypeError.DataTypeNotImplemented,
+                else => @compileError("Invalid type: f32 and f64 are accepted."),
             }
-            if (a.shape[1] != x.shape[0]) return arr.IndexingError.DimensionsMismatch;
+            if (a.shape[1] != x.shape[0]) return core.IndexingError.DimensionsMismatch;
 
             const m: i32 = @intCast(a.shape[0]);
             const n: i32 = @intCast(a.shape[1]);
@@ -183,16 +183,16 @@ pub fn gemv(comptime T: type) fn (a: *const arr.Dense(T, 2), x: *const arr.Dense
 /// 引数
 ///     where T = f32 or f64
 ///     alpha: T
-///     x: Dense(T, 1), n row vector
-///     y: Dense(T, 1), n row vector
-pub fn axpy(comptime T: type) fn (x: *const arr.Dense(T, 1), y: *const arr.Dense(T, 1), alpha: T) arr.Error!void {
+///     x: Vector(T), n row vector
+///     y: Vector(T), n row vector
+pub fn axpy(comptime T: type) fn (x: core.Vector(T), y: core.Vector(T), alpha: T) core.Error!void {
     return struct {
-        fn f(x: *const arr.Dense(T, 1), y: *const arr.Dense(T, 1), alpha: T) arr.Error!void {
+        fn f(x: core.Vector(T), y: core.Vector(T), alpha: T) core.Error!void {
             switch (T) {
                 f32, f64 => {},
-                else => return arr.TypeError.DataTypeNotImplemented,
+                else => @compileError("Invalid type: f32 and f64 are accepted."),
             }
-            if (x.shape[0] != y.shape[0]) return arr.IndexingError.DimensionsMismatch;
+            if (x.shape[0] != y.shape[0]) return core.IndexingError.DimensionsMismatch;
 
             const n: i32 = @intCast(x.shape[0]);
             // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
@@ -213,18 +213,18 @@ pub fn axpy(comptime T: type) fn (x: *const arr.Dense(T, 1), y: *const arr.Dense
 ///     ans := x · y
 /// 引数
 ///     where T = f32 or f64
-///     x: Dense(T, 1), n row vector
-///     y: Dense(T, 1), n row vector
+///     x: Vector(T), n row vector
+///     y: Vector(T), n row vector
 /// 注意点
 ///     cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
-pub fn dot(comptime T: type) fn (x: *const arr.Dense(T, 1), y: *const arr.Dense(T, 1)) arr.Error!T {
+pub fn dot(comptime T: type) fn (x: core.Vector(T), y: core.Vector(T)) core.Error!T {
     return struct {
-        fn f(x: *const arr.Dense(T, 1), y: *const arr.Dense(T, 1)) arr.Error!T {
+        fn f(x: core.Vector(T), y: core.Vector(T)) core.Error!T {
             switch (T) {
                 f32, f64 => {},
-                else => return arr.TypeError.DataTypeNotImplemented,
+                else => @compileError("Invalid type: f32 and f64 are accepted."),
             }
-            if (x.shape[0] != y.shape[0]) return arr.IndexingError.DimensionsMismatch;
+            if (x.shape[0] != y.shape[0]) return core.IndexingError.DimensionsMismatch;
 
             const n: i32 = @intCast(x.shape[0]);
             // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
@@ -246,15 +246,15 @@ pub fn dot(comptime T: type) fn (x: *const arr.Dense(T, 1), y: *const arr.Dense(
 /// 引数
 ///     where T = f32 or f64
 ///     alpha: T
-///     x: Dense(T, 1), n row vector
+///     x: Vector(T), n row vector
 /// 注意点
 ///     cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
-pub fn scal(comptime T: type) fn (x: *const arr.Dense(T, 1), alpha: T) arr.DataError!void {
+pub fn scal(comptime T: type) fn (x: core.Vector(T), alpha: T) core.DataError!void {
     return struct {
-        fn f(x: *const arr.Dense(T, 1), alpha: T) arr.DataError!void {
+        fn f(x: core.Vector(T), alpha: T) core.DataError!void {
             switch (T) {
                 f32, f64 => {},
-                else => return arr.TypeError.DataTypeNotImplemented,
+                else => @compileError("Invalid type: f32 and f64 are accepted."),
             }
             const n: i32 = @intCast(x.shape[0]);
             // column-majorなので、x, yは常に列ベクトルであると想定しているためincの修正の必要はない(この場合)
@@ -285,16 +285,16 @@ test "gemm" {
 
         const answer = &.{ 1, 0, 0, 0, 1, 0, 0, 0, 1 };
 
-        const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
+        const a = try core.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
 
-        const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
+        const b = try core.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
 
-        const c = try arr.Dense(f32, 2).any(alc, c_shape);
+        const c = try core.Dense(f32, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f32)(&a, &b, &c, 1, 0);
+        try gemm(f32)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f32, c.data, answer));
@@ -312,18 +312,23 @@ test "gemm" {
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         const answer = &.{ 30, 84, 138, 24, 69, 114, 18, 54, 90 };
 
-        const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
+        var a = try core.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
+        std.debug.print("a.strides: {d}\n", .{a.strides});
+        try std.testing.expect(a.isAligned());
         a.tr();
+        try std.testing.expect(!a.isAligned());
+        std.debug.print("a.strides: {d}\n", .{a.strides});
 
-        const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
+        var b = try core.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
         b.tr();
+        try std.testing.expect(!b.isAligned());
 
-        const c = try arr.Dense(f32, 2).any(alc, c_shape);
+        const c = try core.Dense(f32, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f32)(&a, &b, &c, 1, 0);
+        try gemm(f32)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f32, c.data, answer));
@@ -341,17 +346,17 @@ test "gemm" {
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         const answer = &.{ 46, 118, 190, 28, 73, 118, 10, 28, 46 };
 
-        const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
+        var a = try core.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
         a.tr();
 
-        const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
+        const b = try core.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
 
-        const c = try arr.Dense(f32, 2).any(alc, c_shape);
+        const c = try core.Dense(f32, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f32)(&a, &b, &c, 1, 0);
+        try gemm(f32)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f32, c.data, answer));
@@ -369,17 +374,17 @@ test "gemm" {
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         const answer = &.{ 54, 72, 90, 42, 57, 72, 30, 42, 54 };
 
-        const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
+        const a = try core.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
 
-        const b = try arr.Dense(f32, 2).from(alc, b_shape, b_data);
+        var b = try core.Dense(f32, 2).from(alc, b_shape, b_data);
         defer b.destroy();
         b.tr();
 
-        const c = try arr.Dense(f32, 2).any(alc, c_shape);
+        const c = try core.Dense(f32, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f32)(&a, &b, &c, 1, 0);
+        try gemm(f32)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f32, c.data, answer));
@@ -398,16 +403,16 @@ test "gemm" {
 
         const answer = &.{ 1, 0, 0, 0, 1, 0, 0, 0, 1 };
 
-        const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
+        const a = try core.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
 
-        const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
+        const b = try core.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
 
-        const c = try arr.Dense(f64, 2).any(alc, c_shape);
+        const c = try core.Dense(f64, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f64)(&a, &b, &c, 1, 0);
+        try gemm(f64)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f64, c.data, answer));
@@ -425,18 +430,18 @@ test "gemm" {
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         const answer = &.{ 30, 84, 138, 24, 69, 114, 18, 54, 90 };
 
-        const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
+        var a = try core.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
         a.tr();
 
-        const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
+        var b = try core.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
         b.tr();
 
-        const c = try arr.Dense(f64, 2).any(alc, c_shape);
+        const c = try core.Dense(f64, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f64)(&a, &b, &c, 1, 0);
+        try gemm(f64)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f64, c.data, answer));
@@ -454,17 +459,17 @@ test "gemm" {
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         const answer = &.{ 46, 118, 190, 28, 73, 118, 10, 28, 46 };
 
-        const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
+        var a = try core.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
         a.tr();
 
-        const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
+        const b = try core.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
 
-        const c = try arr.Dense(f64, 2).any(alc, c_shape);
+        const c = try core.Dense(f64, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f64)(&a, &b, &c, 1, 0);
+        try gemm(f64)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f64, c.data, answer));
@@ -482,17 +487,17 @@ test "gemm" {
         const b_data = &.{ 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         const answer = &.{ 54, 72, 90, 42, 57, 72, 30, 42, 54 };
 
-        const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
+        const a = try core.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
 
-        const b = try arr.Dense(f64, 2).from(alc, b_shape, b_data);
+        var b = try core.Dense(f64, 2).from(alc, b_shape, b_data);
         defer b.destroy();
         b.tr();
 
-        const c = try arr.Dense(f64, 2).any(alc, c_shape);
+        const c = try core.Dense(f64, 2).any(alc, c_shape);
         defer c.destroy();
 
-        try gemm(f64)(&a, &b, &c, 1, 0);
+        try gemm(f64)(a, b, c, 1, 0);
         try c.print();
 
         try std.testing.expect(std.mem.eql(f64, c.data, answer));
@@ -518,16 +523,16 @@ test "gemv" {
 
         const answer = &.{ 30, 36, 42 };
 
-        const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
+        const a = try core.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
 
-        const x = try arr.Dense(f32, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f32, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f32, 1).any(alc, y_shape);
+        const y = try core.Dense(f32, 1).any(alc, y_shape);
         defer y.destroy();
 
-        try gemv(f32)(&a, &x, &y, 1, 0);
+        try gemv(f32)(a, x, y, 1, 0);
         try y.print();
 
         try std.testing.expect(std.mem.eql(f32, y.data, answer));
@@ -546,17 +551,17 @@ test "gemv" {
 
         const answer = &.{ 14, 32, 50 };
 
-        const a = try arr.Dense(f32, 2).from(alc, a_shape, a_data);
+        var a = try core.Dense(f32, 2).from(alc, a_shape, a_data);
         defer a.destroy();
         a.tr();
 
-        const x = try arr.Dense(f32, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f32, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f32, 1).any(alc, y_shape);
+        const y = try core.Dense(f32, 1).any(alc, y_shape);
         defer y.destroy();
 
-        try gemv(f32)(&a, &x, &y, 1, 0);
+        try gemv(f32)(a, x, y, 1, 0);
         try y.print();
 
         try std.testing.expect(std.mem.eql(f32, y.data, answer));
@@ -575,16 +580,16 @@ test "gemv" {
 
         const answer = &.{ 30, 36, 42 };
 
-        const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
+        const a = try core.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
 
-        const x = try arr.Dense(f64, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f64, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f64, 1).any(alc, y_shape);
+        const y = try core.Dense(f64, 1).any(alc, y_shape);
         defer y.destroy();
 
-        try gemv(f64)(&a, &x, &y, 1, 0);
+        try gemv(f64)(a, x, y, 1, 0);
         try y.print();
 
         try std.testing.expect(std.mem.eql(f64, y.data, answer));
@@ -603,17 +608,17 @@ test "gemv" {
 
         const answer = &.{ 14, 32, 50 };
 
-        const a = try arr.Dense(f64, 2).from(alc, a_shape, a_data);
+        var a = try core.Dense(f64, 2).from(alc, a_shape, a_data);
         defer a.destroy();
         a.tr();
 
-        const x = try arr.Dense(f64, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f64, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f64, 1).any(alc, y_shape);
+        const y = try core.Dense(f64, 1).any(alc, y_shape);
         defer y.destroy();
 
-        try gemv(f64)(&a, &x, &y, 1, 0);
+        try gemv(f64)(a, x, y, 1, 0);
         try y.print();
 
         try std.testing.expect(std.mem.eql(f64, y.data, answer));
@@ -639,13 +644,13 @@ test "axpy" {
 
         const answer = &.{ 3, 6, 9 };
 
-        const x = try arr.Dense(f32, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f32, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f32, 1).from(alc, y_shape, y_data);
+        const y = try core.Dense(f32, 1).from(alc, y_shape, y_data);
         defer y.destroy();
 
-        try axpy(f32)(&x, &y, alpha);
+        try axpy(f32)(x, y, alpha);
         try y.print();
 
         try std.testing.expect(std.mem.eql(f32, y.data, answer));
@@ -664,13 +669,13 @@ test "axpy" {
 
         const answer = &.{ 3, 6, 9 };
 
-        const x = try arr.Dense(f64, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f64, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f64, 1).from(alc, y_shape, y_data);
+        const y = try core.Dense(f64, 1).from(alc, y_shape, y_data);
         defer y.destroy();
 
-        try axpy(f64)(&x, &y, alpha);
+        try axpy(f64)(x, y, alpha);
         try y.print();
 
         try std.testing.expect(std.mem.eql(f64, y.data, answer));
@@ -694,10 +699,10 @@ test "scal" {
 
         const answer = &.{ 3, 6, 9 };
 
-        const x = try arr.Dense(f32, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f32, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        try scal(f32)(&x, alpha);
+        try scal(f32)(x, alpha);
         try x.print();
 
         try std.testing.expect(std.mem.eql(f32, x.data, answer));
@@ -714,10 +719,10 @@ test "scal" {
 
         const answer = &.{ 3, 6, 9 };
 
-        const x = try arr.Dense(f64, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f64, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        try scal(f64)(&x, alpha);
+        try scal(f64)(x, alpha);
         try x.print();
 
         try std.testing.expect(std.mem.eql(f64, x.data, answer));
@@ -742,13 +747,13 @@ test "dot" {
 
         const answer = 14;
 
-        const x = try arr.Dense(f32, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f32, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f32, 1).from(alc, y_shape, y_data);
+        const y = try core.Dense(f32, 1).from(alc, y_shape, y_data);
         defer y.destroy();
 
-        const result = try dot(f32)(&x, &y);
+        const result = try dot(f32)(x, y);
 
         try std.testing.expect(result == answer);
 
@@ -765,13 +770,13 @@ test "dot" {
 
         const answer = 14;
 
-        const x = try arr.Dense(f64, 1).from(alc, x_shape, x_data);
+        const x = try core.Dense(f64, 1).from(alc, x_shape, x_data);
         defer x.destroy();
 
-        const y = try arr.Dense(f64, 1).from(alc, y_shape, y_data);
+        const y = try core.Dense(f64, 1).from(alc, y_shape, y_data);
         defer y.destroy();
 
-        const result = try dot(f64)(&x, &y);
+        const result = try dot(f64)(x, y);
 
         try std.testing.expect(result == answer);
 
