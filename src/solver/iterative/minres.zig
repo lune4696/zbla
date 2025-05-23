@@ -41,7 +41,7 @@ const Preconditioning = root.Preprocessing;
 ///     > res: Result
 ///         >> Calculation result.
 ///
-fn solveMINRES(alc: std.mem.Allocator, alc_tmp: std.mem.Allocator, vars: Vars(f64)) Error!Result {
+pub fn solveMINRES(alc: std.mem.Allocator, alc_tmp: std.mem.Allocator, vars: Vars(f64)) Error!Result {
     // 変数定義
     // MINRES法では各イテレーション(i)において、3状態(i-1, i, i+1)の変数が要求される
     // メモリコピーを毎回行うのは大変なので、インデックスを変えることでアクセスするデータを変更する
