@@ -4,14 +4,14 @@ const core = @import("../../core.zig");
 const math = @import("../../math.zig");
 
 /// 目的
-///     不完全コレスキー分解(A' = LDL.T)の実行
+///     > 不完全コレスキー分解(A' = LDL.T)の実行
 /// 返り値
-///     L: 下三角行列
-///     DL.T: 対角行列DとLの転置(L.T)の積
+///     > L: 下三角行列
+///     > DL.T: 対角行列DとLの転置(L.T)の積
 /// 注意点
-///     厳密には修正不完全コレスキー分解
+///     > 厳密には修正不完全コレスキー分解
 /// 参考
-///     https://pbcglab.jp/cgi-bin/wiki/
+///     > https://pbcglab.jp/cgi-bin/wiki/
 fn incompleteCholeskyDecomposition(T: type) fn (alc: std.mem.Allocator, A: *const core.Matrix(f64), non_zero_indices: []const usize) [2]core.Matrix(f64) {
     switch (T) {
         f32, f64 => {},
@@ -52,10 +52,10 @@ fn incompleteCholeskyDecomposition(T: type) fn (alc: std.mem.Allocator, A: *cons
 }
 
 /// 目的
-///     対角スケーリング(a = r/trace(A))の実行
-///     平方根を用いているので厳密には違うのだが、こっちのほうがずっと高速かつ振動無く収束するので採用
+///     > 対角スケーリング(a = r/trace(A))の実行
+///     > 平方根を用いているので厳密には違うのだが、こっちのほうがずっと高速かつ振動無く収束するので採用
 /// 注意点
-///     アロケータはrのアロケータを使用
+///     > アロケータはrのアロケータを使用
 fn diagonalScale(T: type) fn (r: *const core.Vector(T), A: *const core.Matrix(f64)) core.DataError!core.Vector(T) {
     switch (T) {
         f32, f64 => {},

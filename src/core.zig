@@ -82,10 +82,10 @@ pub fn Matrix(comptime T: type) type {
 ///
 /// 補足
 ///     > データ順は column-major 、ベクトルは列ベクトル (numpyと同じ)
-///         >> [
-///         >>  [0, 2],
-///         >>  [1, 3],
-///         >> ]
+///         > [
+///         >  [0, 2],
+///         >  [1, 3],
+///         > ]
 ///
 /// Appendix
 ///     > Data order is column-major and vector is column-vector (= numpy like).
@@ -151,9 +151,9 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
         }
 
         /// 目的
-        ///     Dense(T, n) をあるデータをコピーして生成
+        ///     > Dense(T, n) をあるデータをコピーして生成
         /// 補足
-        ///     original_data はコピーされ、配列自体のデータとして新しく確保される
+        ///     > original_data はコピーされ、配列自体のデータとして新しく確保される
         pub fn from(a: std.mem.Allocator, shape: [n]usize, original_data: []const T) DataError!Dense(T, n) {
             comptime {
                 if (n == 0) @compileError("ZeroDimension");
@@ -307,19 +307,18 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             self.data[data_idx] = value;
         }
 
-        /// Target
-        ///     配列座標をスライスした新たな配列を取得
-        /// 使用例
-        ///     const arr2 = try arr.slice(.{ &.{1}, &.{ 0, 2 }, &.{} });
+        /// 目的
+        ///     > 配列座標をスライスした新たな配列を取得
+        ///         > const arr2 = try arr.slice(.{ &.{1}, &.{ 0, 2 }, &.{} });
         /// 補足
-        ///     引数indices_arr: 配列各軸のスライスする位置を指定、無指定はその軸の全てをスライスする
-        ///     data_indicesはview_idx順に入るので、データ再配列がここで起きる
-        ///     内部の一時的な配列保存に.dataのアロケータを用いている
-        ///         実用的な問題は無いと判断した
-        ///         スコープを出たらdeinit()される
-        ///         arena_allocatorとかでは若干だが容量を圧迫する事に注意
+        ///     > 引数indices_arr: 配列各軸のスライスする位置を指定、無指定はその軸の全てをスライスする
+        ///     > data_indicesはview_idx順に入るので、データ再配列がここで起きる
+        ///     > 内部の一時的な配列保存に.dataのアロケータを用いている
+        ///         > 実用的な問題は無いと判断した
+        ///         > スコープを出たらdeinit()される
+        ///         > arena_allocatorとかでは若干だが容量を圧迫する事に注意
         /// その他
-        ///     各軸について特定の範囲を指定してブロック状にスライスする"block(T, n) fn (arr, rangedindices: [n][2]usize)は実装を検討中
+        ///     > 各軸について特定の範囲を指定してブロック状にスライスする"block(T, n) fn (arr, rangedindices: [n][2]usize)は実装を検討中
         pub fn slice(self: @This(), indices_array: [n][]const usize) Error!@This() {
             var shape: [n]usize = undefined;
             for (0..n) |ax| shape[ax] = if (0 == indices_array[ax].len) self.shape[ax] else indices_array[ax].len;
@@ -358,14 +357,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// Target
-        ///     配列座標を変更した新たな配列を取得
-        /// 使用例
-        ///     const arr2 = try arr.reshape(4, .{ 4, 2, 3, 2 });
+        /// 目的
+        ///     > 配列座標を変更した新たな配列を取得
+        ///         > const arr2 = try arr.reshape(4, .{ 4, 2, 3, 2 });
         /// 補足
-        ///     データ順序が整った行列についてのみ使用可能
-        ///     transpose()などでstridesの降順が乱れている場合、アクセスパターンを確定できない為エラーを出す
-        ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
+        ///     > データ順序が整った行列についてのみ使用可能
+        ///     > transpose()などでstridesの降順が乱れている場合、アクセスパターンを確定できない為エラーを出す
+        ///     > transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
         pub fn reshape(self: @This(), comptime m: usize, shape: [m]usize) Error!Dense(T, m) {
             if (size(self.shape) != Dense(T, m).size(shape)) return IndexingError.SizeMismatch;
             if (!self.isAligned()) return IndexingError.StridesNotOrdered;
@@ -381,13 +379,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// Target
-        ///     配列を転置, 二次元配列専用
-        ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
+        /// 目的
+        ///     > 配列を転置, 二次元配列専用
+        ///     > コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
         /// 補足
-        ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
-        ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
-        ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
+        ///     > transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
+        ///     > stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
+        ///     > transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
         pub fn tr(self: *@This()) void {
             comptime if (n != 2) @compileError("Invalid number of dimension");
             const dim0 = self.shape[0];
@@ -427,13 +425,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             self.strides = strides;
         }
 
-        /// Target
-        ///     転置した配列を取得, 2次元配列専用
-        ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
+        /// 目的
+        ///     > 転置した配列を取得, 2次元配列専用
+        ///     > コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
         /// 補足
-        ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
-        ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
-        ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
+        ///     > transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
+        ///     > stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
+        ///     > transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
         pub fn getTr(self: @This()) DataError!@This() {
             comptime if (n != 2) @compileError("Invalid number of dimension");
             var shape = self.shape;
@@ -453,13 +451,13 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// Target
-        ///     転置した配列を取得
-        ///     コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
+        /// 目的
+        ///     > 転置した配列を取得
+        ///     > コピーしたshapeとstridesのdimensionを入れ替えることでインデクシングを切り替える
         /// 補足
-        ///     transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
-        ///     stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
-        ///     transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
+        ///     > transpose()関数自体は軽量だが、配列のアクセスパターンに変化が生じるので、その後に使用する関数に悪影響が生じうることに注意
+        ///     > stridesの順序が乱れるため、transpose()した行列はreshape()などの関数が使えない
+        ///     > transpose()した配列をreshape()したい場合、まずclone()で再配列を明示的に行うこと
         pub fn getTrans(self: @This(), order: [n]usize) Error!@This() {
             comptime if (n < 2) @compileError("Invalid number of dimension");
             var shape = self.shape;
@@ -486,9 +484,9 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             };
         }
 
-        /// Target
-        ///     行列のStrideが昇順(column-major)にAlignされているかを確認
-        ///     つまり、transpose()されたかどうかの確認に使える
+        /// 目的
+        ///     > 行列のStrideが昇順(column-major)にAlignされているかを確認
+        ///     > つまり、transpose()されたかどうかの確認に使える
         pub fn isAligned(self: @This()) bool {
             const strides = self.strides;
             if (0 == strides.len) unreachable;
@@ -498,9 +496,10 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return true;
         }
 
-        /// Target
-        ///     行列の(疑似)逆行列の導出
-        /// https://www.netlib.org/lapack/explore-html-3.6.1/index.html
+        /// 目的
+        ///     > 行列の(疑似)逆行列の導出
+        /// 参考
+        ///     > https://www.netlib.org/lapack/explore-html-3.6.1/index.html
         pub fn inv(self: @This(), tmp_alc: std.mem.Allocator, obj_alc: std.mem.Allocator) Error!@This() {
             switch (T) {
                 f32, f64 => {},
@@ -554,18 +553,19 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
                 .data = data,
             };
         }
-        /// Target
-        ///     配列座標(shape)の最大要素数(size)を計算
+
+        /// 目的
+        ///     > 配列座標(shape)の最大要素数(size)を計算
         pub fn size(shape: [n]usize) usize {
             var ans: usize = 1;
             for (shape) |ax| ans *= ax;
             return ans;
         }
 
-        /// Target
-        ///     配列座標(shape)のstrideを計算
+        /// 目的
+        ///     > 配列座標(shape)のstrideを計算
         /// 補足
-        ///     column-majorなので、stridesは次元の昇順に計算される
+        ///     > column-majorなので、stridesは次元の昇順に計算される
         pub fn stridesFromShape(shape: [n]usize) [n]usize {
             var strides: [n]usize = undefined;
             var unit: usize = 1;
@@ -576,15 +576,15 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return strides;
         }
 
-        /// Target
-        ///     getなどで配列要素にアクセスする時に、そのインデックスが妥当かどうか確認
-        ///     配列座標(shape)の中に対象点(arrayindex)が収まるかどうか確認
+        /// 目的
+        ///     > getなどで配列要素にアクセスする時に、そのインデックスが妥当かどうか確認
+        ///     > 配列座標(shape)の中に対象点(arrayindex)が収まるかどうか確認
         pub fn checkIndexInRange(shape: [n]usize, arrayidx: [n]usize) IndexingError!void {
             for (shape, arrayidx) |ax, idx| if (ax <= idx) return IndexingError.ArrayindexOutOfRange;
         }
 
-        /// Target
-        ///     stridesを利用してビューインデックスからデータインデックスを計算
+        /// 目的
+        ///     > stridesを利用してビューインデックスからデータインデックスを計算
         pub fn dataIndex(strides: [n]usize, view_index: [n]usize) IndexingError!usize {
             for (strides) |stride| if (0 == stride) return IndexingError.ZeroStride;
 
@@ -595,8 +595,8 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return linearidx;
         }
 
-        /// Target
-        ///     配列座標(shape, order, strides)を利用してデータインデックス(線形)からビューインデックス(アレイ)を計算
+        /// 目的
+        ///     > 配列座標(shape, order, strides)を利用してデータインデックス(線形)からビューインデックス(アレイ)を計算
         pub fn viewIndex(shape: [n]usize, strides: [n]usize, data_idx: usize) Error![n]usize {
             for (strides) |stride| if (0 == stride) return IndexingError.ZeroStride;
             for (shape) |ax| if (0 == ax) return IndexingError.ZeroDimension;
@@ -624,10 +624,10 @@ pub fn Dense(comptime T: type, comptime n: usize) type {
             return view_idx;
         }
 
-        /// Target
-        ///     view_idxをcolumn-major(昇順)でインクリメント
+        /// 目的
+        ///     > view_idxをcolumn-major(昇順)でインクリメント
         /// 補足
-        ///     ビューインデックスはmutable
+        ///     > ビューインデックスはmutable
         pub fn incrementViewIndex(shape: [n]usize, view_idx: *[n]usize) void {
             if (shape.len != view_idx.len) unreachable;
             for (0..shape.len) |i| {

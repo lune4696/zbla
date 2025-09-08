@@ -10,21 +10,21 @@ const Vars = root.Vars;
 const Preprocessing = root.Preprocessing;
 const Verbosity = root.Verbosity;
 
-// Target
-//     > 共役勾配法(Conjugate Gradient Method)に基づく頂点電位計算
+/// Target
+///     > 共役勾配法(Conjugate Gradient Method)に基づく頂点電位計算
 ///     > 前処理の有無でアルゴリズムが異なるため、前処理付き共役勾配法はsolvePCG()を使う
 ///
 /// Input
 ///     > alc_obj: std.mem.Allocator
-///         >> 関数スコープを抜ける際に解放されないデータに対するアロケータ
+///         > 関数スコープを抜ける際に解放されないデータに対するアロケータ
 ///     > vars.A: ar.Dense(T)
-///         >> 連立方程式 Ax=b の係数行列 A
+///         > 連立方程式 Ax=b の係数行列 A
 ///     > vars.b
-///         >> 連立方程式 Ax=b の右辺ベクトル b
+///         > 連立方程式 Ax=b の右辺ベクトル b
 ///
 /// Output
 ///     > res: Result
-///         >> 演算結果
+///         > 演算結果
 pub fn solveCG(alc: std.mem.Allocator, alc_tmp: std.mem.Allocator, vars: Vars(f64)) Error!Result {
     const a = vars.a;
     const b = vars.b;

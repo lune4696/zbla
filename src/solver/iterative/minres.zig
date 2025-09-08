@@ -15,15 +15,15 @@ const Preconditioning = root.Preprocessing;
 ///
 /// 入力
 ///     > alc_obj: std.mem.Allocator
-///         >> 関数スコープを抜ける際に解放されないデータに対するアロケータ
+///         > 関数スコープを抜ける際に解放されないデータに対するアロケータ
 ///     > vars.A: ar.Dense(T)
-///         >> 連立方程式 Ax=b の係数行列 A
+///         > 連立方程式 Ax=b の係数行列 A
 ///     > vars.b
-///         >> 連立方程式 Ax=b の右辺ベクトル b
+///         > 連立方程式 Ax=b の右辺ベクトル b
 ///
 /// 出力
 ///     > res: Result
-///         >> 演算結果
+///         > 演算結果
 ///
 /// Target
 ///     > MINRES method
@@ -31,15 +31,15 @@ const Preconditioning = root.Preprocessing;
 ///
 /// Input
 ///     > alc_obj: std.mem.Allocator
-///         >> Allocator for data which is not released after exiting function
+///         > Allocator for data which is not released after exiting function
 ///     > vars.A: ar.Dense(T)
-///         >> Coeffcient matrix A in simultaneous equation Ax = b
+///         > Coeffcient matrix A in simultaneous equation Ax = b
 ///     > vars.b
-///         >> Answer vector b in simultaneous equation Ax = b
+///         > Answer vector b in simultaneous equation Ax = b
 ///
 /// 出力
 ///     > res: Result
-///         >> Calculation result.
+///         > Calculation result.
 ///
 pub fn solveMINRES(alc: std.mem.Allocator, alc_tmp: std.mem.Allocator, vars: Vars(f64)) Error!Result {
     // 変数定義

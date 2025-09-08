@@ -9,15 +9,15 @@ const lapack = @cImport({
 const core = @import("./core.zig");
 
 /// 目的
-///     汎用行列-行列算術演算(GEneral Matrix-Matrix operation (GEMM), level 3 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     C = alpha * a @ b + beta * C
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     beta: T,
-///     a: Matrix(T), m by k matrix
-///     b: Matrix(T), k by n matrix
+///     > 汎用行列-行列算術演算(GEneral Matrix-Matrix operation (GEMM), level 3 BLAS)
+///     > https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
+///     > C = alpha * a @ b + beta * C
+/// 入力
+///     > where T = f32 or f64
+///     > alpha: T
+///     > beta: T,
+///     > a: Matrix(T), m by k matrix
+///     > b: Matrix(T), k by n matrix
 pub fn gemm(comptime T: type) fn (a: core.Matrix(T), b: core.Matrix(T), c: core.Matrix(T), alpha: T, beta: T) core.Error!void {
     return struct {
         fn f(a: core.Matrix(T), b: core.Matrix(T), c: core.Matrix(T), alpha: T, beta: T) core.Error!void {
@@ -116,16 +116,16 @@ pub fn gemm(comptime T: type) fn (a: core.Matrix(T), b: core.Matrix(T), c: core.
 }
 
 /// 目的
-///     汎用行列-ベクトル算術演算(GEneral Matrix-Vector operation (GEMV), level 2 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     y := alpha * a @ x + beta * y
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     beta: T,
-///     a: Matrix(T), m by n matrix
-///     x: Vector(T), n row vector
-///     y: Vector(T), m row vector
+///     > 汎用行列-ベクトル算術演算(GEneral Matrix-Vector operation (GEMV), level 2 BLAS)
+///     > https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
+///     > y := alpha * a @ x + beta * y
+/// 入力
+///     > where T = f32 or f64
+///     > alpha: T
+///     > beta: T,
+///     > a: Matrix(T), m by n matrix
+///     > x: Vector(T), n row vector
+///     > y: Vector(T), m row vector
 pub fn gemv(comptime T: type) fn (a: core.Matrix(T), x: core.Vector(T), y: core.Vector(T), alpha: T, beta: T) core.Error!void {
     return struct {
         fn f(a: core.Matrix(T), x: core.Vector(T), y: core.Vector(T), alpha: T, beta: T) core.Error!void {
@@ -177,14 +177,14 @@ pub fn gemv(comptime T: type) fn (a: core.Matrix(T), x: core.Vector(T), y: core.
 }
 
 /// 目的
-///     汎用ベクトル-ベクトル算術演算(AXPlusY (AXPY), level 2 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     y := alpha * x + y
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     x: Vector(T), n row vector
-///     y: Vector(T), n row vector
+///     > 汎用ベクトル-ベクトル算術演算(AXPlusY (AXPY), level 2 BLAS)
+///     > https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
+///     > y := alpha * x + y
+/// 入力
+///     > where T = f32 or f64
+///     > alpha: T
+///     > x: Vector(T), n row vector
+///     > y: Vector(T), n row vector
 pub fn axpy(comptime T: type) fn (x: core.Vector(T), y: core.Vector(T), alpha: T) core.Error!void {
     return struct {
         fn f(x: core.Vector(T), y: core.Vector(T), alpha: T) core.Error!void {
@@ -208,15 +208,15 @@ pub fn axpy(comptime T: type) fn (x: core.Vector(T), y: core.Vector(T), alpha: T
 }
 
 /// 目的
-///     ベクトル-ベクトル内積(dot, level 1 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     ans := x · y
-/// 引数
-///     where T = f32 or f64
-///     x: Vector(T), n row vector
-///     y: Vector(T), n row vector
-/// 注意点
-///     cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
+///     > ベクトル-ベクトル内積(dot, level 1 BLAS)
+///     > https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
+///     > ans := x · y
+/// 入力
+///     > where T = f32 or f64
+///     > x: Vector(T), n row vector
+///     > y: Vector(T), n row vector
+/// 補足
+///     > cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
 pub fn dot(comptime T: type) fn (x: core.Vector(T), y: core.Vector(T)) core.Error!T {
     return struct {
         fn f(x: core.Vector(T), y: core.Vector(T)) core.Error!T {
@@ -240,15 +240,15 @@ pub fn dot(comptime T: type) fn (x: core.Vector(T), y: core.Vector(T)) core.Erro
 }
 
 /// 目的
-///     ベクトルのスカラー倍(scal, level 1 BLAS)
-///     https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
-///     x := alpha * x
-/// 引数
-///     where T = f32 or f64
-///     alpha: T
-///     x: Vector(T), n row vector
-/// 注意点
-///     cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
+///     > ベクトルのスカラー倍(scal, level 1 BLAS)
+///     > https://www.netlib.org/lapack/explore-html-3.6.1/index.html (docs(LAPACK))
+///     > x := alpha * x
+/// 入力
+///     > where T = f32 or f64
+///     > alpha: T
+///     > x: Vector(T), n row vector
+/// 補足
+///     > cblasにはdsdotのような混合精度演算、sdsdotのようなスカラー倍混合演算もあるが、現在は使用していない
 pub fn scal(comptime T: type) fn (x: core.Vector(T), alpha: T) core.DataError!void {
     return struct {
         fn f(x: core.Vector(T), alpha: T) core.DataError!void {
